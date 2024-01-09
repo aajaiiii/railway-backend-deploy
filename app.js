@@ -150,7 +150,7 @@ app.post("/updateadmin/:id", async (req, res) => {
     // อัปเดตรหัสผ่าน
     await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
 
-    res.status(200).json({ message: 'รหัสผ่านถูกอัปเดตเรียบร้อยแล้ว' });
+    res.status(200).json({status: "ok", message: 'รหัสผ่านถูกอัปเดตเรียบร้อยแล้ว' });
 
   } catch (error) {
     console.error('Error during password update:', error);
