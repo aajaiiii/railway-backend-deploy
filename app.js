@@ -45,7 +45,7 @@ app.post("/addadmin", async (req, res) => {
       if (oldUser) {
         return res.json({ error: "User Exists" });
       }
-      // รหัสตรงกันไหน
+
       if (password !== confirmPassword) {
         return res.json({ error: "Passwords do not match" });
       }
@@ -82,7 +82,83 @@ app.post("/login", async (req,res) => {
     }
     res.json({ status: "error", error: "InvAlid Password" });
   });
+
+
+// // อัปเดตแอดมิน
+// app.get("/updateadmin", async ( req, res ) => {
+//   const {password, newpassword, confirmnewPassword } = req.body;
+//   try {
+//     await Admins.updateOne({_id: id},{
+//       $set: {
+//         password: newpassword
+//       }
+//     })
+   
+//   } catch (error) {
+//     console.log(error);
+//   }
+// });
+
+
+//เปลี่ยนรหัสผ่าน
+// app.post("/updateadmin/:id", async ( req, res ) => {
+//   const {password, newPassword, confirmNewPassword } = req.body;
+//   const id = req.params.id;
   
+//   try {
+//     if (newPassword !== confirmNewPassword) {
+//       return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
+//     }
+
+//     const admin = await Admins.findById(id);
+
+    
+//     if (admin.password !== password) {
+//       return res.status(401).json({ error: 'รหัสผ่านเก่าไม่ถูก' });
+//     }
+
+//      // Update the password
+//      admin.password = newPassword;
+//      res.status(200).json({ message: 'Password updated successfully' });
+
+//   } catch (error) {
+//     console.log(error);
+//   }
+// });
+
+app.post("/updateadmin/:id", async (req, res) => {
+  const {password, newPassword, confirmNewPassword} = req.body;
+  const id = req.params.id;
+
+  try {
+    // if (newPassword !== confirmNewPassword) {
+    //   return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
+    // }
+    if (newPassword.trim() !== confirmNewPassword.trim()) {
+      return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
+    }
+    const admin = await Admins.findById(id);
+
+    //รหัสตรงกับในฐานข้อมูลไหม
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'รหัสผ่านเก่าไม่ถูกต้อง' });
+    }
+
+    //
+    const encryptedNewPassword = await bcrypt.hash(newPassword, 10);
+    // อัปเดตรหัสผ่าน
+    await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+
+    res.status(200).json({ message: 'รหัสผ่านถูกอัปเดตเรียบร้อยแล้ว' });
+
+  } catch (error) {
+    console.error('Error during password update:', error);
+    res.status(500).json({ error: 'มีข้อผิดพลาดในการอัปเดตรหัสผ่าน' });
+  }
+});
+
+
 
 //profile userdata ส่ง token
 app.post("/profile", async (req, res) => {
@@ -191,5 +267,3 @@ app.get("/alladmin", async ( req, res ) => {
 //     res.status(500).send({ status: "Error", data: "Internal Server Error" });
 //   }
 // });
-
-
