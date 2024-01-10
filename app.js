@@ -267,3 +267,13 @@ app.get("/alladmin", async ( req, res ) => {
 //     res.status(500).send({ status: "Error", data: "Internal Server Error" });
 //   }
 // });
+
+// app.delete('/deleteadmin', async (req, res) => {
+//   try {
+//     const result = await Admins.deleteOne({ _id: req.params.id });
+//     res.send(result);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send('Internal Server Error');
+//   }
+// });
