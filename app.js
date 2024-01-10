@@ -224,25 +224,19 @@ app.get("/alladmin", async (req, res) => {
   }
 });
 
-app.delete("/deleteAdmin", async (req, res) => {
+app.delete("/deleteAdmin/:id", async (req, res) => {
   
-  const {adminId}= req.body;
+  const adminId= req.params.id;
   try {
-    await Admins.deleteOne({ _id: adminId }, function (err, result) {
-      if (err) {
-        console.log(err);
-        return res.status(500).json({ status: "Error", data: "ลบไม่สำเร็จ" });
-      }
-
-      console.log(result);
-      if (result.deletedCount === 0) {
-        return res.status(404).json({ status: "Error", data: "ไม่พบข้อมูลแอดมินที่ต้องการลบ" });
-      }
-
-      res.json({ status: "OK", data: "ลบสำเร็จ" });
-    });
+    const result = await Admins.deleteOne({ _id: adminId });
+    
+    if (result.deletedCount === 1) {
+      res.json({ status: 'OK', data: 'Deleted successfully' });
+    } else {
+      res.json({ status: 'Not Found', data: 'Admin not found or already deleted' });
+    }
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ status: "Error", data: "ลบไม่สำเร็จ" });
+    console.error('Error during deletion:', error);
+    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
   }
 });
