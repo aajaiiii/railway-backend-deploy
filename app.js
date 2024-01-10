@@ -11,21 +11,21 @@ const cors = require("cors");
 app.use(cors());
 
 
-const JWT_SECRET ="hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
+const JWT_SECRET = "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
 app.listen(5000, () => {
-    console.log("Server Started");
-    
+  console.log("Server Started");
+
 });
 
 
 const mongoUrl = "mongodb+srv://sasithornsorn:Sasi12345678@cluster0.faewtst.mongodb.net/?retryWrites=true&w=majority"
 
-mongoose.connect(mongoUrl,{
-    dbName: 'Homeward',
-    useNewUrlParser:true,
-    useUnifiedTopology: true
-}).then(()=>{console.log("Connect to database");})
-.catch((e) => console.log(e));
+mongoose.connect(mongoUrl, {
+  dbName: 'Homeward',
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => { console.log("Connect to database"); })
+  .catch((e) => console.log(e));
 
 
 // เชื่อม mongo
@@ -36,52 +36,52 @@ const Admins = mongoose.model("Admin");
 
 //เพิ่มข้อมูลแอดมิน
 app.post("/addadmin", async (req, res) => {
-    // const { username, password } = req.body;
-    const { username, password, confirmPassword } = req.body;
-    const encryptedPassword = await bcrypt.hash(password, 10);
-    try {
-      const oldUser = await Admins.findOne({ username });
-      //ชื่อมีในระบบไหม
-      if (oldUser) {
-        return res.json({ error: "User Exists" });
-      }
-
-      if (password !== confirmPassword) {
-        return res.json({ error: "Passwords do not match" });
-      }
-      await Admins.create({
-        username,
-        password: encryptedPassword,
-      });
-      res.send({ status: "ok" });
-    } catch (error) {
-      res.send({ status: "error" });
+  // const { username, password } = req.body;
+  const { username, password, confirmPassword } = req.body;
+  const encryptedPassword = await bcrypt.hash(password, 10);
+  try {
+    const oldUser = await Admins.findOne({ username });
+    //ชื่อมีในระบบไหม
+    if (oldUser) {
+      return res.json({ error: "User Exists" });
     }
-  });
 
-
-
-
-app.post("/login", async (req,res) => {
-    const { username,password } = req.body;
-  
-    const user = await Admins.findOne({ username });
-    if (!user) {
-      return res.json({ error: "User Not found" });
+    if (password !== confirmPassword) {
+      return res.json({ error: "Passwords do not match" });
     }
-    if (await bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-        expiresIn: "15m",
-      });
-  
-      if (res.status(201)) {
-        return res.json({ status: "ok", data: token });
-      } else {
-        return res.json({ error: "error" });
-      }
+    await Admins.create({
+      username,
+      password: encryptedPassword,
+    });
+    res.send({ status: "ok" });
+  } catch (error) {
+    res.send({ status: "error" });
+  }
+});
+
+
+
+
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await Admins.findOne({ username });
+  if (!user) {
+    return res.json({ error: "User Not found" });
+  }
+  if (await bcrypt.compare(password, user.password)) {
+    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    if (res.status(201)) {
+      return res.json({ status: "ok", data: token });
+    } else {
+      return res.json({ error: "error" });
     }
-    res.json({ status: "error", error: "InvAlid Password" });
-  });
+  }
+  res.json({ status: "error", error: "InvAlid Password" });
+});
 
 
 // // อัปเดตแอดมิน
@@ -93,7 +93,7 @@ app.post("/login", async (req,res) => {
 //         password: newpassword
 //       }
 //     })
-   
+
 //   } catch (error) {
 //     console.log(error);
 //   }
@@ -104,7 +104,7 @@ app.post("/login", async (req,res) => {
 // app.post("/updateadmin/:id", async ( req, res ) => {
 //   const {password, newPassword, confirmNewPassword } = req.body;
 //   const id = req.params.id;
-  
+
 //   try {
 //     if (newPassword !== confirmNewPassword) {
 //       return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
@@ -112,7 +112,7 @@ app.post("/login", async (req,res) => {
 
 //     const admin = await Admins.findById(id);
 
-    
+
 //     if (admin.password !== password) {
 //       return res.status(401).json({ error: 'รหัสผ่านเก่าไม่ถูก' });
 //     }
@@ -127,7 +127,7 @@ app.post("/login", async (req,res) => {
 // });
 
 app.post("/updateadmin/:id", async (req, res) => {
-  const {password, newPassword, confirmNewPassword} = req.body;
+  const { password, newPassword, confirmNewPassword } = req.body;
   const id = req.params.id;
 
   try {
@@ -194,7 +194,7 @@ app.post("/profile", async (req, res) => {
 // app.post("/addequipment", async (req, res) => {
 //   // const { username, password } = req.body;
 //   const { equipment_name, equipment_type } = req.body;
-  
+
 //   try {
 //     const oldequipment = await equipment.findOne({ equipment_name });
 //     //มีอุปกรณ์ในระบบไหม
@@ -215,7 +215,7 @@ app.post("/profile", async (req, res) => {
 
 
 // // ดึงข้อมูลมาโชว์
-app.get("/alladmin", async ( req, res ) => {
+app.get("/alladmin", async (req, res) => {
   try {
     const allAdmin = await Admins.find({});
     res.send({ status: "ok", data: allAdmin });
@@ -224,56 +224,25 @@ app.get("/alladmin", async ( req, res ) => {
   }
 });
 
+app.delete("/deleteAdmin", async (req, res) => {
+  
+  const {adminId}= req.body;
+  try {
+    await Admins.deleteOne({ _id: adminId }, function (err, result) {
+      if (err) {
+        console.log(err);
+        return res.status(500).json({ status: "Error", data: "ลบไม่สำเร็จ" });
+      }
 
+      console.log(result);
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ status: "Error", data: "ไม่พบข้อมูลแอดมินที่ต้องการลบ" });
+      }
 
-//  ลบข้อมุล
-// app.post("/deleteadmin", async (req, res) => {
-//   const { adminid } = req.body;
-//   try {
-//     const deletedAdmin = await Admins.findOneAndDelete({ _id: adminid });
-//     if(deletedAdmin){
-//       console.log(`ลบ ${adminid} แล้ว`);
-//       res.send({ status: "Ok", data: "Deleted" });
-//     }else{
-//       console.log(`หา ${adminid} ไม่เจอ`);
-//       res.status(404).send({ status: "Error", data: "Admin not found" });
-
-//     }
-//     // Admins.deleteOne({ _id: adminid }, function (error, res) {
-//     //   console.log(error);
-//     // });
-//     res.send({ status: "Ok", data: "Deleted" });
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
-
-
-
-// app.post("/deleteadmin", async (req, res) => {
-//   const { adminid } = req.body;
-//   try {
-//     const deletedAdmin = await Admins.findOneAndDelete({ _id: adminid });
-
-//     if (deletedAdmin) {
-//       console.log(`Admin with ID ${adminid} deleted successfully`);
-//       res.send({ status: "Ok", data: "Deleted" });
-//     } else {
-//       console.log(`Admin with ID ${adminid} not found`);
-//       res.status(404).send({ status: "Error", data: "Admin not found" });
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send({ status: "Error", data: "Internal Server Error" });
-//   }
-// });
-
-// app.delete('/deleteadmin', async (req, res) => {
-//   try {
-//     const result = await Admins.deleteOne({ _id: req.params.id });
-//     res.send(result);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send('Internal Server Error');
-//   }
-// });
+      res.json({ status: "OK", data: "ลบสำเร็จ" });
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ status: "Error", data: "ลบไม่สำเร็จ" });
+  }
+});
