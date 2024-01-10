@@ -33,6 +33,7 @@ require("./homeward");
 
 
 const Admins = mongoose.model("Admin");
+const Equipment = mongoose.model("Equipment");
 
 //เพิ่มข้อมูลแอดมิน
 app.post("/addadmin", async (req, res) => {
@@ -134,6 +135,10 @@ app.post("/updateadmin/:id", async (req, res) => {
     // if (newPassword !== confirmNewPassword) {
     //   return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
     // }
+
+    // if(password, newPassword, confirmNewPassword === null){
+    //   return res.status(400).json({ error: 'กรูณากรอกรหัส' });
+    //   }
     if (newPassword.trim() !== confirmNewPassword.trim()) {
       return res.status(400).json({ error: 'รหัสผ่านไม่ตรงกัน' });
     }
@@ -190,18 +195,16 @@ app.post("/profile", async (req, res) => {
 
 
 //add equipment
-// const equipment = mongoose.model("Equipment");
 // app.post("/addequipment", async (req, res) => {
-//   // const { username, password } = req.body;
 //   const { equipment_name, equipment_type } = req.body;
   
 //   try {
-//     const oldequipment = await equipment.findOne({ equipment_name });
+//     const oldequipment = await Equipment.findOne({ equipment_name });
 //     //มีอุปกรณ์ในระบบไหม
 //     if (oldequipment) {
 //       return res.json({ error: "Equipment Exists" });
 //     }
-//     await equipment.create({
+//     await Equipment.create({
 //       equipment_name,
 //       equipment_type,
 //     });
@@ -212,6 +215,55 @@ app.post("/profile", async (req, res) => {
 // });
 
 
+app.post("/addequip", async (req, res) => {
+  const { equipment_name, equipment_type, adminId } = req.body;
+
+  try {
+    const oldequipment = await Equipment.findOne({ equipment_name });
+
+    // ตรวจสอบว่าอุปกรณ์มีอยู่ในระบบหรือไม่
+    if (oldequipment) {
+      return res.json({ error: "Equipment Exists" });
+    }
+
+    // ตรวจสอบว่า Admin ID ที่ส่งมาถูกต้องหรือไม่
+    const existingAdmin = await Admins.findById(adminId);
+    if (!existingAdmin) {
+      return res.json({ error: "Invalid Admin ID" });
+    }
+
+    // สร้าง document ใหม่ของ Equipment โดยรวม Admin ID
+    // const newEquipment = await Equipment.create({
+    //   equipment_name,
+    //   equipment_type,
+    //   admin: [adminId], // อ้างอิงไปยัง Admin ID
+    // });
+  await Equipment.create({
+      equipment_name,
+      equipment_type,
+      admin: [adminId], // อ้างอิงไปยัง Admin ID
+    });
+
+    // เพิ่ม ID ของ Equipment ใหม่ลงใน field admin ของ Admin Collection
+    // existingAdmin.equipment.push(newEquipment._id);
+    // await existingAdmin.save();
+
+    res.send({ status: "ok" });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+// // ดึงข้อมูลอุปกรณ์มาโชว์
+app.get("/allequip", async ( req, res ) => {
+  try {
+    const allEquip = await Equipment.find({});
+    res.send({ status: "ok", data: allEquip });
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 
 // // ดึงข้อมูลมาโชว์
