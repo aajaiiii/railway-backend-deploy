@@ -419,3 +419,57 @@ app.delete("/deleteCaremanual/:id", async (req, res) => {
     res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
   }
 });
+
+
+//แก้ไขคู่มือ
+app.put("/updatecaremanual/:id", upload, async (req, res) => {
+  const { caremanual_name, detail } = req.body;
+  const { id } = req.params;
+
+  try {
+    let imagename = "";
+    let filename = "";
+
+    if (req.files['image'] && req.files['image'][0]) {
+      imagename = req.files['image'][0].filename;
+    }
+
+    if (req.files['file'] && req.files['file'][0]) {
+      filename = req.files['file'][0].filename;
+    }
+
+    const updatedCaremanual = await Caremanual.findByIdAndUpdate(id, {
+      caremanual_name,
+      image: imagename,
+      file: filename,
+      detail,
+    }, { new: true });
+    
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!updatedCaremanual) {
+      return res.status(404).json({ status: "Caremanual not found" });
+    }
+
+    res.json({ status: "ok", updatedCaremanual });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+//ดึงคู่มือมา
+app.get('/getcaremanual/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const caremanual = await Caremanual.findById(id);
+
+    if (!caremanual) {
+      return res.status(404).json({ error: 'Caremanual not found' });
+    }
+
+    res.json(caremanual);
+  } catch (error) {
+    console.error('Error fetching caremanual:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
