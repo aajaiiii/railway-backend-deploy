@@ -30,16 +30,36 @@ const equipmentScehma = new mongoose.Schema(
 
 mongoose.model("Equipment",equipmentScehma);
 
-const equipmentScehma = new mongoose.Schema(
+const MPersonnelScehma = new mongoose.Schema(
     {
-        equipment_name:String,
-        equipment_type:String,
-        admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
+        username:String,
+        password:String,
+        tel:String,
+        nametitle:String,
+        name:String,
+        
 
     },
     {
-        collection: "Equipment",
+        collection: "MPersonnel",
+        timestamps: true,
     }
 );
 
-mongoose.model("Equipment",equipmentScehma);
+mongoose.model("MPersonnel", MPersonnelScehma);
+
+
+const CaremanualScehma = new mongoose.Schema(
+    {
+        caremanual_name:String,
+        image:String,
+        file:String,
+        detail:String,
+    },
+    {
+        collection: "Caremanual",
+        timestamps: true,
+    }
+);
+
+mongoose.model("Caremanual", CaremanualScehma);
