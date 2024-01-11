@@ -401,3 +401,21 @@ app.delete("/deleteEquipment/:id", async (req, res) => {
     res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
   }
 });
+
+//ลบคู่มือ
+app.delete("/deleteCaremanual/:id", async (req, res) => {
+  
+  const CaremanualId= req.params.id;
+  try {
+    const result = await Caremanual.deleteOne({ _id: CaremanualId });
+    
+    if (result.deletedCount === 1) {
+      res.json({ status: 'OK', data: 'ลบคู่มือสำเร็จ' });
+    } else {
+      res.json({ status: 'Not Found', data: 'ไม่พบคู่มือนี้หรือข้อมูลถูกลบไปแล้ว' });
+    }
+  } catch (error) {
+    console.error('Error during deletion:', error);
+    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+  }
+});
