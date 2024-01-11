@@ -276,6 +276,7 @@ app.get("/alladmin", async (req, res) => {
   }
 });
 
+//ลบข้อมูล ยังทำไม่ได้
 app.delete("/deleteAdmin/:id", async (req, res) => {
   
   const adminId= req.params.id;
