@@ -16,14 +16,30 @@ mongoose.model("Admin",UserDetailsScehma);
 
 
 
-const UserDetailsScehma1 = new mongoose.Schema(
+const equipmentScehma = new mongoose.Schema(
     {
         equipment_name:String,
-        equipment_type:String
+        equipment_type:String,
+        admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
+
     },
     {
         collection: "Equipment",
     }
 );
 
-mongoose.model("Equipment",UserDetailsScehma1);
+mongoose.model("Equipment",equipmentScehma);
+
+const equipmentScehma = new mongoose.Schema(
+    {
+        equipment_name:String,
+        equipment_type:String,
+        admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
+
+    },
+    {
+        collection: "Equipment",
+    }
+);
+
+mongoose.model("Equipment",equipmentScehma);
