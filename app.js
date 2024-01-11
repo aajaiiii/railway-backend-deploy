@@ -355,12 +355,9 @@ app.delete("/deleteAdmin/:id", async (req, res) => {
     const result = await Admins.deleteOne({ _id: adminId });
 
     if (result.deletedCount === 1) {
-      res.json({ status: "OK", data: "Deleted successfully" });
+      res.json({ status: 'OK', data: 'Deleted successfully' });
     } else {
-      res.json({
-        status: "Not Found",
-        data: "Admin not found or already deleted",
-      });
+      res.json({ status: 'Not Found', data: 'Admin not found or already deleted' });
     }
   } catch (error) {
     console.error("Error during deletion:", error);
