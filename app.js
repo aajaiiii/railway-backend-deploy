@@ -758,11 +758,7 @@ app.get("/get-image", async (req, res) => {
 });
 
 
-<<<<<<< Updated upstream
 //ลบแอดมิน
-=======
-//ลบข้อมูล ยังทำไม่ได้
->>>>>>> Stashed changes
 app.delete("/deleteAdmin/:id", async (req, res) => {
   
   const adminId= req.params.id;
