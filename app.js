@@ -758,7 +758,7 @@ app.get("/get-image", async (req, res) => {
 });
 
 
-//ลบข้อมูล ยังทำไม่ได้
+//ลบแอดมิน
 app.delete("/deleteAdmin/:id", async (req, res) => {
   
   const adminId= req.params.id;
@@ -775,3 +775,5 @@ app.delete("/deleteAdmin/:id", async (req, res) => {
     res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
   }
 });
+
+//ลบ
