@@ -350,19 +350,54 @@ app.get("/allcaremanual", async (req, res) => {
 
 //ลบแอดมิน
 app.delete("/deleteAdmin/:id", async (req, res) => {
-  const adminId = req.params.id;
+  
+  const adminId= req.params.id;
   try {
     const result = await Admins.deleteOne({ _id: adminId });
-
+    
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'Deleted successfully' });
+      res.json({ status: 'OK', data: 'ลบข้อมูลแอดมินสำเร็จ' });
     } else {
-      res.json({ status: 'Not Found', data: 'Admin not found or already deleted' });
+      res.json({ status: 'Not Found', data: 'ไม่พบแอดมินหรือแอดมินถูกลบไปแล้ว' });
     }
   } catch (error) {
-    console.error("Error during deletion:", error);
-    res.status(500).json({ status: "Error", data: "Internal Server Error" });
+    console.error('Error during deletion:', error);
+    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
   }
 });
 
-//ลบ
+//ลบข้อมูลแพทย์
+app.delete("/deleteMPersonnel/:id", async (req, res) => {
+  
+  const mpersonnelId= req.params.id;
+  try {
+    const result = await MPersonnel.deleteOne({ _id: mpersonnelId });
+    
+    if (result.deletedCount === 1) {
+      res.json({ status: 'OK', data: 'ลบข้อมูลบุคลากรสำเร็จ' });
+    } else {
+      res.json({ status: 'Not Found', data: 'ไม่พบข้อมูลบุคลากรหรือข้อมูลถูกลบไปแล้ว' });
+    }
+  } catch (error) {
+    console.error('Error during deletion:', error);
+    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+  }
+});
+
+//ลบอุปกร์ทางการแพทย์
+app.delete("/deleteEquipment/:id", async (req, res) => {
+  
+  const EquipmentId= req.params.id;
+  try {
+    const result = await Equipment.deleteOne({ _id: EquipmentId });
+    
+    if (result.deletedCount === 1) {
+      res.json({ status: 'OK', data: 'ลบอุปกร์ทางการแพทย์สำเร็จ' });
+    } else {
+      res.json({ status: 'Not Found', data: 'ไม่พบอุปกร์ทางการแพทย์นี้หรือข้อมูลถูกลบไปแล้ว' });
+    }
+  } catch (error) {
+    console.error('Error during deletion:', error);
+    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+  }
+});
