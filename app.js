@@ -422,7 +422,7 @@ app.delete("/deleteCaremanual/:id", async (req, res) => {
 
 
 //แก้ไขคู่มือ
-app.put("/updatecaremanual/:id", upload, async (req, res) => {
+app.post("/updatecaremanual/:id", upload, async (req, res) => {
   const { caremanual_name, detail } = req.body;
   const { id } = req.params;
 
