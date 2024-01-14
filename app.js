@@ -392,9 +392,9 @@ app.delete("/deleteEquipment/:id", async (req, res) => {
     const result = await Equipment.deleteOne({ _id: EquipmentId });
     
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'ลบอุปกร์ทางการแพทย์สำเร็จ' });
+      res.json({ status: 'OK', data: 'ลบอุปกรณ์ทางการแพทย์สำเร็จ' });
     } else {
-      res.json({ status: 'Not Found', data: 'ไม่พบอุปกร์ทางการแพทย์นี้หรือข้อมูลถูกลบไปแล้ว' });
+      res.json({ status: 'Not Found', data: 'ไม่พบอุปกรณ์ทางการแพทย์นี้หรือข้อมูลถูกลบไปแล้ว' });
     }
   } catch (error) {
     console.error('Error during deletion:', error);
