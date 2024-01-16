@@ -510,7 +510,7 @@ app.post("/updatecaremanual/:id", upload, async (req, res) => {
         file: existingFilename,
         detail,
       }, { new: true });
-0
+
       res.json({ status: "ok", updatedCaremanual: updatedWithoutFile });
     }
   } catch (error) {
