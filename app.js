@@ -3,11 +3,11 @@ const app = express();
 app.use(express.json());
 const mongoose = require("mongoose");
 app.use("/file", express.static("../homeward/src/file/"));
-
+app.set("view engine", "ejs");
+app.use(express.urlencoded({ extended: false }));
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-// อย่าลืมใส่อันนี้
+var nodemailer = require("nodemailer");
 const cors = require("cors");
 app.use(cors());
 
@@ -41,9 +41,33 @@ const Caremanual = mongoose.model("Caremanual");
 
 // แอดมิน
 //เพิ่มข้อมูลแอดมิน
+// app.post("/addadmin", async (req, res) => {
+//   // const { username, password } = req.body;
+//   const { username, password, confirmPassword } = req.body;
+//   const encryptedPassword = await bcrypt.hash(password, 10);
+//   try {
+//     const oldUser = await Admins.findOne({ username });
+//     //ชื่อมีในระบบไหม
+//     if (oldUser) {
+//       return res.json({ error: "User Exists" });
+//     }
+
+//     if (password !== confirmPassword) {
+//       return res.json({ error: "Passwords do not match" });
+//     }
+//     await Admins.create({
+//       username,
+//       password: encryptedPassword,
+//     });
+//     res.send({ status: "ok" });
+//   } catch (error) {
+//     res.send({ status: "error" });
+//   }
+// });
+
 app.post("/addadmin", async (req, res) => {
   // const { username, password } = req.body;
-  const { username, password, confirmPassword } = req.body;
+  const { username, name, email, password, confirmPassword } = req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
   try {
     const oldUser = await Admins.findOne({ username });
@@ -57,6 +81,8 @@ app.post("/addadmin", async (req, res) => {
     }
     await Admins.create({
       username,
+      name,
+      email,
       password: encryptedPassword,
     });
     res.send({ status: "ok" });
@@ -86,12 +112,105 @@ app.post("/login", async (req, res) => {
   res.json({ status: "error", error: "InvAlid Password" });
 });
 
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const oldUser = await Admins.findOne({ email });
+    if (!oldUser) {
+      return res.json({ status: "User Not Exists!!" });
+    }
+
+    const secret = JWT_SECRET + oldUser.password;
+    const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, secret, {
+      expiresIn: "5m",
+    });
+
+    const link = `http://localhost:5000/reset-password/${oldUser._id}/${token}`;
+    var transporter = nodemailer.createTransport({
+      service: "gmail",
+      // มาเปลี่ยนอีเมลที่ส่งด้วย
+      auth: {
+        user: "oysasitorn@gmail.com",
+        pass: "avyn xfwl pqio hmtr",
+      },
+    });
+
+    var mailOptions = {
+      from: "oysasitorn@gmail.com",
+      to: email,
+      subject: "เปลี่ยนรหัสผ่าน Homeward",
+      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
+    };
+
+    transporter.sendMail(mailOptions, function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    });
+
+    console.log(link);
+  } catch (error) {}
+});
+
+app.get("/reset-password/:id/:token", async (req, res) => {
+  const { id, token } = req.params;
+  console.log(req.params);
+  const oldUser = await Admins.findOne({ _id: id });
+  if (!oldUser) {
+    return res.json({ status: "User Not Exists!!" });
+  }
+  const secret = JWT_SECRET + oldUser.password;
+  try {
+    const verify = jwt.verify(token, secret);
+    res.render("index", { email: verify.email, status: "Not Verified" });
+  } catch (error) {
+    console.log(error);
+    res.send("Not Verified");
+  }
+});
+
+app.post("/reset-password/:id/:token", async (req, res) => {
+  const { id, token } = req.params;
+  const { password, confirmpassword } = req.body;
+  console.log(req.params);
+
+  if (password !== confirmpassword) {
+    return res.json({ error: "Passwords do not match" });
+  }
+  const oldUser = await Admins.findOne({ _id: id });
+  if (!oldUser) {
+    return res.json({ status: "User Not Exists!!" });
+  }
+  const secret = JWT_SECRET + oldUser.password;
+  try {
+    const verify = jwt.verify(token, secret);
+    const encryptedPassword = await bcrypt.hash(password, 10);
+    await Admins.updateOne(
+      {
+        _id: id,
+      },
+      {
+        $set: {
+          password: encryptedPassword,
+        },
+      }
+    );
+
+    res.render("index", { email: verify.email, status: "verified" });
+  } catch (error) {
+    console.log(error);
+    res.send({ status: "Somthing went wrong" });
+  }
+});
+
 app.post("/updateadmin/:id", async (req, res) => {
   const { password, newPassword, confirmNewPassword } = req.body;
   const id = req.params.id;
 
   try {
-
     if (newPassword.trim() !== confirmNewPassword.trim()) {
       return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
     }
@@ -145,18 +264,16 @@ app.post("/profile", async (req, res) => {
   } catch (error) {}
 });
 
-
 app.post("/addequip", async (req, res) => {
   const { equipment_name, equipment_type, adminId } = req.body;
 
   try {
     const oldequipment = await Equipment.findOne({ equipment_name });
 
- 
     if (oldequipment) {
       return res.json({ error: "Equipment Exists" });
     }
-    
+
     const existingAdmin = await Admins.findById(adminId);
     if (!existingAdmin) {
       return res.json({ error: "Invalid Admin ID" });
@@ -167,7 +284,6 @@ app.post("/addequip", async (req, res) => {
       equipment_type,
       admin: [adminId], // อ้างอิงไปยัง Admin ID
     });
-
 
     res.send({ status: "ok" });
   } catch (error) {
@@ -195,7 +311,6 @@ app.get("/alladmin", async (req, res) => {
     console.log(error);
   }
 });
-
 
 // แพทย์
 
@@ -264,7 +379,10 @@ const multer = require("multer");
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const destinationPath = file.fieldname === 'image' ? '../homeward/src/images/' : '../homeward/src/file/';
+    const destinationPath =
+      file.fieldname === "image"
+        ? "../homeward/src/images/"
+        : "../homeward/src/file/";
     cb(null, destinationPath);
   },
   filename: function (req, file, cb) {
@@ -302,41 +420,37 @@ const storage = multer.diskStorage({
 // });
 
 const upload = multer({ storage: storage }).fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'file', maxCount: 1 },
+  { name: "image", maxCount: 1 },
+  { name: "file", maxCount: 1 },
 ]);
 
 //addคู่มือ รูป+ไฟล์
-app.post("/addcaremanual",upload,async (req, res) => {
-    const { caremanual_name, detail } = req.body;
+app.post("/addcaremanual", upload, async (req, res) => {
+  const { caremanual_name, detail } = req.body;
 
-    try {
-      let imagename = "";
-      let filename = "";
-  
-      if (req.files['image'] && req.files['image'][0]) {
-        imagename = req.files['image'][0].filename;
-      }
-  
-      if (req.files['file'] && req.files['file'][0]) {
-        filename = req.files['file'][0].filename;
-      }
-    
+  try {
+    let imagename = "";
+    let filename = "";
 
-      await Caremanual.create({
-        caremanual_name,
-        image: imagename,
-        file: filename,
-        detail,
-      });
-      res.json({ status: "ok" });
-    } catch (error) {
-      res.json({ status: error });
+    if (req.files["image"] && req.files["image"][0]) {
+      imagename = req.files["image"][0].filename;
     }
+
+    if (req.files["file"] && req.files["file"][0]) {
+      filename = req.files["file"][0].filename;
+    }
+
+    await Caremanual.create({
+      caremanual_name,
+      image: imagename,
+      file: filename,
+      detail,
+    });
+    res.json({ status: "ok" });
+  } catch (error) {
+    res.json({ status: error });
   }
-);
-
-
+});
 
 app.get("/allcaremanual", async (req, res) => {
   try {
@@ -350,76 +464,83 @@ app.get("/allcaremanual", async (req, res) => {
 
 //ลบแอดมิน
 app.delete("/deleteAdmin/:id", async (req, res) => {
-  
-  const adminId= req.params.id;
+  const adminId = req.params.id;
   try {
     const result = await Admins.deleteOne({ _id: adminId });
-    
+
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'ลบข้อมูลแอดมินสำเร็จ' });
+      res.json({ status: "OK", data: "ลบข้อมูลแอดมินสำเร็จ" });
     } else {
-      res.json({ status: 'Not Found', data: 'ไม่พบแอดมินหรือแอดมินถูกลบไปแล้ว' });
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบแอดมินหรือแอดมินถูกลบไปแล้ว",
+      });
     }
   } catch (error) {
-    console.error('Error during deletion:', error);
-    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
 
 //ลบข้อมูลแพทย์
 app.delete("/deleteMPersonnel/:id", async (req, res) => {
-  
-  const mpersonnelId= req.params.id;
+  const mpersonnelId = req.params.id;
   try {
     const result = await MPersonnel.deleteOne({ _id: mpersonnelId });
-    
+
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'ลบข้อมูลบุคลากรสำเร็จ' });
+      res.json({ status: "OK", data: "ลบข้อมูลบุคลากรสำเร็จ" });
     } else {
-      res.json({ status: 'Not Found', data: 'ไม่พบข้อมูลบุคลากรหรือข้อมูลถูกลบไปแล้ว' });
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบข้อมูลบุคลากรหรือข้อมูลถูกลบไปแล้ว",
+      });
     }
   } catch (error) {
-    console.error('Error during deletion:', error);
-    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
 
 //ลบอุปกร์ทางการแพทย์
 app.delete("/deleteEquipment/:id", async (req, res) => {
-  
-  const EquipmentId= req.params.id;
+  const EquipmentId = req.params.id;
   try {
     const result = await Equipment.deleteOne({ _id: EquipmentId });
-    
+
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'ลบอุปกรณ์ทางการแพทย์สำเร็จ' });
+      res.json({ status: "OK", data: "ลบอุปกรณ์ทางการแพทย์สำเร็จ" });
     } else {
-      res.json({ status: 'Not Found', data: 'ไม่พบอุปกรณ์ทางการแพทย์นี้หรือข้อมูลถูกลบไปแล้ว' });
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบอุปกรณ์ทางการแพทย์นี้หรือข้อมูลถูกลบไปแล้ว",
+      });
     }
   } catch (error) {
-    console.error('Error during deletion:', error);
-    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
 
 //ลบคู่มือ
 app.delete("/deleteCaremanual/:id", async (req, res) => {
-  
-  const CaremanualId= req.params.id;
+  const CaremanualId = req.params.id;
   try {
     const result = await Caremanual.deleteOne({ _id: CaremanualId });
-    
+
     if (result.deletedCount === 1) {
-      res.json({ status: 'OK', data: 'ลบคู่มือสำเร็จ' });
+      res.json({ status: "OK", data: "ลบคู่มือสำเร็จ" });
     } else {
-      res.json({ status: 'Not Found', data: 'ไม่พบคู่มือนี้หรือข้อมูลถูกลบไปแล้ว' });
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบคู่มือนี้หรือข้อมูลถูกลบไปแล้ว",
+      });
     }
   } catch (error) {
-    console.error('Error during deletion:', error);
-    res.status(500).json({ status: 'Error', data: 'Internal Server Error' });
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
-
 
 //แก้ไขคู่มือ
 // app.post("/updatecaremanual/:id", upload, async (req, res) => {
@@ -444,7 +565,7 @@ app.delete("/deleteCaremanual/:id", async (req, res) => {
 //       file: filename,
 //       detail,
 //     }, { new: true });
-    
+
 //     // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
 //     if (!updatedCaremanual) {
 //       return res.status(404).json({ status: "Caremanual not found" });
@@ -465,22 +586,26 @@ app.post("/updatecaremanual/:id", upload, async (req, res) => {
     let filename = "";
 
     // มีรูปใหม่ไหม
-    if (req.files['image'] && req.files['image'][0]) {
-      imagename = req.files['image'][0].filename;
+    if (req.files["image"] && req.files["image"][0]) {
+      imagename = req.files["image"][0].filename;
     }
     // มีไฟล์ไหม
-    if (req.files['file'] && req.files['file'][0]) {
-      filename = req.files['file'][0].filename;
+    if (req.files["file"] && req.files["file"][0]) {
+      filename = req.files["file"][0].filename;
     }
     // ตรวจสอบว่ามีการอัปเดตรูปภาพหรือไม่
     if (imagename !== "") {
       // มีการอัปเดต
-      const updatedWithImage = await Caremanual.findByIdAndUpdate(id, {
-        caremanual_name,
-        image: imagename,
-        file: filename,
-        detail,
-      }, { new: true });
+      const updatedWithImage = await Caremanual.findByIdAndUpdate(
+        id,
+        {
+          caremanual_name,
+          image: imagename,
+          file: filename,
+          detail,
+        },
+        { new: true }
+      );
 
       if (!updatedWithImage) {
         return res.status(404).json({ status: "Caremanual not found" });
@@ -504,12 +629,16 @@ app.post("/updatecaremanual/:id", upload, async (req, res) => {
       }
 
       // ให้ใช้ค่าเดิมของไฟล์
-      const updatedWithoutFile = await Caremanual.findByIdAndUpdate(id, {
-        caremanual_name,
-        image: oleCaremanual.image,
-        file: existingFilename,
-        detail,
-      }, { new: true });
+      const updatedWithoutFile = await Caremanual.findByIdAndUpdate(
+        id,
+        {
+          caremanual_name,
+          image: oleCaremanual.image,
+          file: existingFilename,
+          detail,
+        },
+        { new: true }
+      );
 
       res.json({ status: "ok", updatedCaremanual: updatedWithoutFile });
     }
@@ -518,21 +647,20 @@ app.post("/updatecaremanual/:id", upload, async (req, res) => {
   }
 });
 
-
 //ดึงคู่มือมา
-app.get('/getcaremanual/:id', async (req, res) => {
+app.get("/getcaremanual/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     const caremanual = await Caremanual.findById(id);
 
     if (!caremanual) {
-      return res.status(404).json({ error: 'Caremanual not found' });
+      return res.status(404).json({ error: "Caremanual not found" });
     }
 
     res.json(caremanual);
   } catch (error) {
-    console.error('Error fetching caremanual:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error fetching caremanual:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
