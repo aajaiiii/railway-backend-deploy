@@ -34,8 +34,9 @@ mongoose.model("Equipment",equipmentScehma);
 
 const MPersonnelScehma = new mongoose.Schema(
     {
-        username:String,
+        username:{ type: String, unique: true } ,
         password:String,
+        email: { type: String, unique: true },
         tel:String,
         nametitle:String,
         name:String,

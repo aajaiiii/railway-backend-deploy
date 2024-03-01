@@ -66,18 +66,20 @@ const Caremanual = mongoose.model("Caremanual");
 // });
 
 app.post("/addadmin", async (req, res) => {
-  // const { username, password } = req.body;
   const { username, name, email, password, confirmPassword } = req.body;
+  if (!username || !password || !email) {
+    return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
+  }
   const encryptedPassword = await bcrypt.hash(password, 10);
   try {
     const oldUser = await Admins.findOne({ username });
     //ชื่อมีในระบบไหม
     if (oldUser) {
-      return res.json({ error: "User Exists" });
+      return res.json({ error: "มีชื่อผู้ใช้นี้อยู่ในระบบแล้ว" });
     }
 
     if (password !== confirmPassword) {
-      return res.json({ error: "Passwords do not match" });
+      return res.json({ error: "รหัสผ่านไม่ตรงกัน" });
     }
     await Admins.create({
       username,
@@ -90,6 +92,7 @@ app.post("/addadmin", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -140,7 +143,7 @@ app.post("/forgot-password", async (req, res) => {
       from: "oysasitorn@gmail.com",
       to: email,
       subject: "เปลี่ยนรหัสผ่าน Homeward",
-      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
+      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nกรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
     };
 
     transporter.sendMail(mailOptions, function (error, info) {
@@ -178,11 +181,11 @@ app.post("/reset-password/:id/:token", async (req, res) => {
   console.log(req.params);
 
   if (password !== confirmpassword) {
-    return res.json({ error: "Passwords do not match" });
+    return res.json({ error: "รหัสผ่านไม่ตรงกัน" });
   }
   const oldUser = await Admins.findOne({ _id: id });
   if (!oldUser) {
-    return res.json({ status: "User Not Exists!!" });
+    return res.json({ status: "ไม่มีผู้ใช้นี้อยู่ในระบบ!!" });
   }
   const secret = JWT_SECRET + oldUser.password;
   try {
@@ -202,10 +205,11 @@ app.post("/reset-password/:id/:token", async (req, res) => {
     res.render("index", { email: verify.email, status: "verified" });
   } catch (error) {
     console.log(error);
-    res.send({ status: "Somthing went wrong" });
+    res.send({ status: "เกิดข้อผิดพลาดบางอย่าง" });
   }
 });
 
+//เปลี่ยนรหัสแอดมิน
 app.post("/updateadmin/:id", async (req, res) => {
   const { password, newPassword, confirmNewPassword } = req.body;
   const id = req.params.id;
@@ -316,23 +320,23 @@ app.get("/alladmin", async (req, res) => {
 
 //เพิ่มข้อมูลแพทย์
 app.post("/addmpersonnel", async (req, res) => {
-  // const { username, password } = req.body;
-  const { username, password, confirmPassword, tel, nametitle, name } =
+  const { username, password, email, confirmPassword, tel, nametitle, name } =
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
   try {
     const oldUser = await MPersonnel.findOne({ username });
     //ชื่อมีในระบบไหม
     if (oldUser) {
-      return res.json({ error: "User Exists" });
+      return res.json({ error: "มีชื่อผู้ใช้นี้อยู่ในระบบแล้ว" });
     }
 
     if (password !== confirmPassword) {
-      return res.json({ error: "Passwords do not match" });
+      return res.json({ error: "รหัสผ่านไม่ตรงกัน" });
     }
     await MPersonnel.create({
       username,
       password: encryptedPassword,
+      email,
       tel,
       nametitle,
       name,
@@ -352,26 +356,6 @@ app.get("/allMpersonnel", async (req, res) => {
   }
 });
 
-app.post("/loginmpersonnel", async (req, res) => {
-  const { username, password } = req.body;
-
-  const user = await MPersonnel.findOne({ username });
-  if (!user) {
-    return res.json({ error: "User Not found" });
-  }
-  if (await bcrypt.compare(password, user.password)) {
-    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "15m",
-    });
-
-    if (res.status(201)) {
-      return res.json({ status: "ok", data: token });
-    } else {
-      return res.json({ error: "error" });
-    }
-  }
-  res.json({ status: "error", error: "InvAlid Password" });
-});
 
 //addคู่มือ ได้ละ
 
@@ -662,5 +646,124 @@ app.get("/getcaremanual/:id", async (req, res) => {
   } catch (error) {
     console.error("Error fetching caremanual:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+//ฝั่งแพทย์
+//login
+app.post("/loginmpersonnel", async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await MPersonnel.findOne({ username });
+  if (!user) {
+    return res.json({ error: "User Not found" });
+  }
+  if (await bcrypt.compare(password, user.password)) {
+    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    if (res.status(201)) {
+      return res.json({ status: "ok", data: token });
+    } else {
+      return res.json({ error: "error" });
+    }
+  }
+  res.json({ status: "error", error: "InvAlid Password" });
+});
+
+//ลืมรหัสผ่าน
+app.post("/forgot-passworddt", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const oldUser = await MPersonnel.findOne({ email });
+    if (!oldUser) {
+      return res.json({ status: "User Not Exists!!" });
+    }
+
+    const secret = JWT_SECRET + oldUser.password;
+    const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, secret, {
+      expiresIn: "5m",
+    });
+
+    const link = `http://localhost:5000/reset-passworddt/${oldUser._id}/${token}`;
+    var transporter = nodemailer.createTransport({
+      service: "gmail",
+      // มาเปลี่ยนอีเมลที่ส่งด้วย
+      auth: {
+        user: "oysasitorn@gmail.com",
+        pass: "avyn xfwl pqio hmtr",
+      },
+    });
+
+    var mailOptions = {
+      from: "oysasitorn@gmail.com",
+      to: email,
+      subject: "เปลี่ยนรหัสผ่าน Homeward",
+      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nกรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
+    };
+
+    transporter.sendMail(mailOptions, function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    });
+
+    console.log(link);
+  } catch (error) {}
+});
+
+app.get("/reset-passworddt/:id/:token", async (req, res) => {
+  const { id, token } = req.params;
+  console.log(req.params);
+  const oldUser = await MPersonnel.findOne({ _id: id });
+  if (!oldUser) {
+    return res.json({ status: "User Not Exists!!" });
+  }
+  const secret = JWT_SECRET + oldUser.password;
+  try {
+    const verify = jwt.verify(token, secret);
+    res.render("index", { email: verify.email, status: "Not Verified" });
+  } catch (error) {
+    console.log(error);
+    res.send("Not Verified");
+  }
+});
+
+app.post("/reset-passworddt/:id/:token", async (req, res) => {
+  const { id, token } = req.params;
+  const { password, confirmpassword } = req.body;
+  console.log(req.params);
+
+  if (password !== confirmpassword) {
+    return res.json({ error: "Passwords do not match" });
+  }
+  const oldUser = await MPersonnel.findOne({ _id: id });
+  if (!oldUser) {s
+    return res.json({ status: "User Not Exists!!" });
+  }
+  const secret = JWT_SECRET + oldUser.password;
+  try {
+    const verify = jwt.verify(token, secret);
+    const encryptedPassword = await bcrypt.hash(password, 10);
+    await MPersonnel.updateOne(
+      {
+        _id: id,
+      },
+      {
+        $set: {
+          password: encryptedPassword,
+        },
+      }
+    );
+
+    res.render("indexdt", { email: verify.email, status: "verified" });
+  } catch (error) {
+    console.log(error);
+    res.send({ status: "Somthing went wrong" });
   }
 });
