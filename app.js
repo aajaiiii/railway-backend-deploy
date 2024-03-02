@@ -240,20 +240,51 @@ app.post("/updateadmin/:id", async (req, res) => {
   }
 });
 
-//profile userdata ส่ง token
+// //profile userdata ส่ง token
+// app.post("/profile", async (req, res) => {
+//   const { token } = req.body;
+//   try {
+//     const admin = jwt.verify(token, JWT_SECRET, (error, res) => {
+//       if (error) {
+//         return "token expired";
+//       }
+//       return res;
+//     });
+
+//     console.log(admin);
+
+//     if (admin == "token expired") {
+//       return res.send({ status: "error", data: "token expired" });
+//     }
+
+//     const userAdmin = admin.username;
+//     Admins.findOne({ username: userAdmin })
+//       .then((data) => {
+//         res.send({ status: "ok", data: data });
+//       })
+//       .catch((error) => {
+//         res.send({ status: "error", data: error });
+//       });
+//   } catch (error) {}
+// });
+
 app.post("/profile", async (req, res) => {
   const { token } = req.body;
   try {
-    const admin = jwt.verify(token, JWT_SECRET, (error, res) => {
+    const admin = jwt.verify(token, JWT_SECRET, (error, decoded) => {
       if (error) {
-        return "token expired";
+        if (error.name === "TokenExpiredError") {
+          return "token expired";
+        } else {
+          throw error; // ถ้าเกิดข้อผิดพลาดอื่นๆในการยืนยัน token ให้โยน error ไปต่อให้ catch จัดการ
+        }
       }
-      return res;
+      return decoded;
     });
 
     console.log(admin);
 
-    if (admin == "token expired") {
+    if (admin === "token expired") {
       return res.send({ status: "error", data: "token expired" });
     }
 
@@ -265,11 +296,14 @@ app.post("/profile", async (req, res) => {
       .catch((error) => {
         res.send({ status: "error", data: error });
       });
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    res.send({ status: "error", data: "token verification error" });
+  }
 });
 
 app.post("/addequip", async (req, res) => {
-  const { equipment_name, equipment_type, adminId } = req.body;
+  const { equipment_name, equipment_type } = req.body;
 
   try {
     const oldequipment = await Equipment.findOne({ equipment_name });
@@ -278,15 +312,15 @@ app.post("/addequip", async (req, res) => {
       return res.json({ error: "Equipment Exists" });
     }
 
-    const existingAdmin = await Admins.findById(adminId);
-    if (!existingAdmin) {
-      return res.json({ error: "Invalid Admin ID" });
-    }
+    // const existingAdmin = await Admins.findById(adminId);
+    // if (!existingAdmin) {
+    //   return res.json({ error: "Invalid Admin ID" });
+    // }
 
     await Equipment.create({
       equipment_name,
       equipment_type,
-      admin: [adminId], // อ้างอิงไปยัง Admin ID
+     // admin: [adminId], // อ้างอิงไปยัง Admin ID
     });
 
     res.send({ status: "ok" });
@@ -346,6 +380,7 @@ app.post("/addmpersonnel", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
 
 app.get("/allMpersonnel", async (req, res) => {
   try {
@@ -765,5 +800,90 @@ app.post("/reset-passworddt/:id/:token", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.send({ status: "Somthing went wrong" });
+  }
+});
+
+//ค้นหาคู่มือ
+app.get("/searchcaremanual", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(keyword, "i");
+    
+    const result = await Caremanual.find({
+      $or: [
+        { caremanual_name: { $regex: regex } }, // ค้นหาชื่อคู่มือที่ตรงกับ keyword
+        { detail: { $regex: regex } } // ค้นหาคำอธิบายที่ตรงกับ keyword
+      ]
+    });
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+//ค้นหาแพทย์
+app.get("/searchmpersonnel", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(keyword, "i");
+    
+    const result = await MPersonnel.find({
+      $or: [
+        { name: { $regex: regex } },
+        { nametitle: { $regex: regex } } 
+      ]
+    });
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+
+//ค้นหาแพทย์
+app.get("/searchequipment", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(keyword, "i");
+    
+    const result = await Equipment.find({
+      $or: [
+        { username: { $regex: regex } },
+        // { equipment_type: { $regex: regex } } 
+      ]
+    });
+
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+app.get("/searchadmin", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(keyword, "i");
+    
+    const result = await Admins.find({
+      $or: [
+        { username: { $regex: regex } },
+      ]
+    });
+
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
   }
 });

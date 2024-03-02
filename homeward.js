@@ -22,7 +22,7 @@ const equipmentScehma = new mongoose.Schema(
     {
         equipment_name:String,
         equipment_type:String,
-        admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
+        // admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
 
     },
     {
@@ -58,6 +58,7 @@ const CaremanualScehma = new mongoose.Schema(
         image:String,
         file:String,
         detail:String,
+        
     },
     {
         collection: "Caremanual",
