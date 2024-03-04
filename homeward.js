@@ -67,3 +67,44 @@ const CaremanualScehma = new mongoose.Schema(
 );
 
 mongoose.model("Caremanual", CaremanualScehma);
+
+
+//ผู้ป่วย
+const UserScehma = new mongoose.Schema(
+    {
+        username:{ type: String, unique: true } ,
+        password:String,
+        email: { type: String, unique: true }, 
+        tel:String,
+        name:String,
+        gender:String,
+        birthday:Date,
+        ID_card_number:String,
+        nationality:String,
+        Address:String,
+         
+     // caregiver:[{type: mongoose.Schema.Types.ObjectId,ref:'Caregiver'}]
+    
+    },
+    {
+        collection: "User",
+        timestamps: true,
+    }
+);
+
+mongoose.model("User", UserScehma);
+
+//ผู้ดูแล
+const CaregiverScehma = new mongoose.Schema(
+    {
+        name:String,
+        Relationship:String,
+        tel:String,
+    },
+    {
+        collection: "Caregiver",
+        timestamps: true,
+    }
+);
+
+mongoose.model("Caregiver", CaregiverScehma);

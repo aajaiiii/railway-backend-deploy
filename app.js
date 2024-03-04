@@ -11,6 +11,8 @@ var nodemailer = require("nodemailer");
 const cors = require("cors");
 app.use(cors());
 
+
+
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
 app.listen(5000, () => {
@@ -38,7 +40,7 @@ const Admins = mongoose.model("Admin");
 const Equipment = mongoose.model("Equipment");
 const MPersonnel = mongoose.model("MPersonnel");
 const Caremanual = mongoose.model("Caremanual");
-
+const User = mongoose.model("User");
 // แอดมิน
 //เพิ่มข้อมูลแอดมิน
 // app.post("/addadmin", async (req, res) => {
@@ -240,33 +242,6 @@ app.post("/updateadmin/:id", async (req, res) => {
   }
 });
 
-// //profile userdata ส่ง token
-// app.post("/profile", async (req, res) => {
-//   const { token } = req.body;
-//   try {
-//     const admin = jwt.verify(token, JWT_SECRET, (error, res) => {
-//       if (error) {
-//         return "token expired";
-//       }
-//       return res;
-//     });
-
-//     console.log(admin);
-
-//     if (admin == "token expired") {
-//       return res.send({ status: "error", data: "token expired" });
-//     }
-
-//     const userAdmin = admin.username;
-//     Admins.findOne({ username: userAdmin })
-//       .then((data) => {
-//         res.send({ status: "ok", data: data });
-//       })
-//       .catch((error) => {
-//         res.send({ status: "error", data: error });
-//       });
-//   } catch (error) {}
-// });
 
 app.post("/profile", async (req, res) => {
   const { token } = req.body;
@@ -885,5 +860,51 @@ app.get("/searchadmin", async (req, res) => {
     res.json({ status: "ok", data: result });
   } catch (error) {
     res.json({ status: error });
+  }
+});
+
+
+//ผู้ป่วย
+app.post("/adduser", async (req, res) => {
+  const { username, name, email, password, confirmPassword,tel,gender,birthday,ID_card_number, nationality,Address } = req.body;
+  if (!username || !password || !email) {
+    return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
+  }
+  const encryptedPassword = await bcrypt.hash(password, 10);
+  try {
+    const oldUser = await User.findOne({ username });
+    //ชื่อมีในระบบไหม
+    if (oldUser) {
+      return res.json({ error: "มีชื่อผู้ใช้นี้อยู่ในระบบแล้ว" });
+    }
+
+    if (password !== confirmPassword) {
+      return res.json({ error: "รหัสผ่านไม่ตรงกัน" });
+    }
+    await User.create({
+      username,
+      name,
+      email,
+      password: encryptedPassword,
+      tel,
+      gender,
+      birthday,
+      ID_card_number, 
+      nationality,
+      Address,
+    });
+    res.send({ status: "ok" });
+  } catch (error) {
+    res.send({ status: "error" });
+  }
+});
+
+// // ดึงข้อมูลผู้ป่วยมาโชว์
+app.get("/alluser", async (req, res) => {
+  try {
+    const allUser = await User.find({});
+    res.send({ status: "ok", data: allUser });
+  } catch (error) {
+    console.log(error);
   }
 });
