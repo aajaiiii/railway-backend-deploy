@@ -821,7 +821,7 @@ app.get("/searchmpersonnel", async (req, res) => {
 });
 
 
-//ค้นหาแพทย์
+//ค้นหาอุปกรณ์
 app.get("/searchequipment", async (req, res) => {
   try {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
@@ -906,5 +906,26 @@ app.get("/alluser", async (req, res) => {
     res.send({ status: "ok", data: allUser });
   } catch (error) {
     console.log(error);
+  }
+});
+
+//ค้นหาผู้ป่วย
+app.get("/searchuser", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(keyword, "i");
+    
+    const result = await User.find({
+      $or: [
+        { username: { $regex: regex } },
+      ]
+    });
+
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
   }
 });
