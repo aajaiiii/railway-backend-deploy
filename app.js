@@ -8,6 +8,8 @@ app.use(express.urlencoded({ extended: false }));
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 var nodemailer = require("nodemailer");
+const randomstring = require('randomstring');
+
 const cors = require("cors");
 app.use(cors());
 
@@ -929,3 +931,172 @@ app.get("/searchuser", async (req, res) => {
     res.json({ status: error });
   }
 });
+
+
+//ลบผู้ป่วย
+app.delete("/deleteUser/:id", async (req, res) => {
+  const UserId = req.params.id;
+  try {
+    const result = await User.deleteOne({ _id: UserId});
+
+    if (result.deletedCount === 1) {
+      res.json({ status: "OK", data: "ลบข้อมูลผู้ป่วยสำเร็จ" });
+    } else {
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบข้อมูลผู้ป่วยนี้หรือข้อมูลถูกลบไปแล้ว",
+      });
+    }
+  } catch (error) {
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
+  }
+});
+
+//ดึงคู่ข้อมูลผู้ป่วย
+app.get("/getuser/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ error: "user not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+
+//แก้ไขผู้ป่วย
+app.post("/updateuser/:id", async (req, res) => {
+  // const { username, name, email,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
+  const { username, name, email, password,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
+  const { id } = req.params;
+
+  try {
+    const updatedUser = await User.findByIdAndUpdate
+    (id, {
+      username,
+      name,
+      email,
+      password,
+      tel,
+      gender,
+      birthday,
+      ID_card_number, 
+      nationality,
+      Address,
+    }, { new: true });
+
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!updatedUser) {
+      return res.status(404).json({ status: "User not found" });
+    }
+
+    res.json({ status: "ok", updatedUser });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+// app.get("/getadmin/:id", async (req, res) => {
+//   const { id } = req.params;
+
+//   try {
+//     const admin = await Admins.findById(id);
+
+//     if (!admin) {
+//       return res.status(404).json({ error: "admin not found" });
+//     }
+
+//     res.json(admin);
+//   } catch (error) {
+//     console.error("Error fetching user:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+app.post("/updatenameadmin/:id", async (req, res) => {
+  const { name } = req.body;
+  const id = req.params.id;
+  try {
+    // อัปเดตชื่อของ admin
+    // const admin = await Admins.findById(id);
+    await Admins.findByIdAndUpdate(id, {name});
+
+    res
+      .status(200)
+      .json({ status: "ok", message: "ชื่อผู้ใช้ถูกอัปเดตเรียบร้อยแล้ว" });
+  } catch (error) {
+    console.error("Error during name update:", error);
+    res.status(500).json({ error: "มีข้อผิดพลาดในการอัปเดตชื่อผู้ใช้" });
+  }
+});
+
+
+//เปลี่ยนอีเมล ส่ง otp ยังไม่มีตัวเก็บ otp เพื่อเช็คว่าตรงกับที่ส่งไหม
+
+// app.post("/sendotp", async (req, res) => {
+//   const { email } = req.body;
+//   const otp = randomstring.generate(6); // สร้างรหัส OTP แบบสุ่ม
+  
+//   try {
+//     // ส่งอีเมล OTP ไปยังอีเมลของผู้ใช้
+//     let transporter = nodemailer.createTransport({
+//       service: 'gmail',
+//       auth: {
+//         user: 'oysasitorn@gmail.com', // อีเมลของคุณ
+//         pass: 'avyn xfwl pqio hmtr' // รหัสผ่านของคุณ
+//       }
+//     });
+
+//     let mailOptions = {
+//       from: 'oysasitorn@gmail.com', // อีเมลของคุณ
+//       to: email,
+//       subject: 'รหัส OTP สำหรับยืนยันการเปลี่ยนอีเมล',
+//       text: `รหัส OTP ของคุณคือ: ${otp}`
+//     };
+
+//     transporter.sendMail(mailOptions, (error, info) => {
+//       if (error) {
+//         console.log(error);
+//         res.json({ error: "เกิดข้อผิดพลาดในการส่งอีเมล OTP" });
+//       } else {
+//         console.log('Email sent: ' + info.response);
+//         res.json({ success: true, otp });
+//       }
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     res.json({ error: "เกิดข้อผิดพลาด" });
+//   }
+// });
+
+
+// app.post("/updateemail", async (req, res) => {
+//   const { email, otp } = req.body;
+//   if (!email || !otp) {
+//     return res.json({ error: "กรุณากรอกอีเมลและรหัส OTP" });
+//   }
+
+//   // ตรวจสอบว่า OTP ถูกต้องหรือไม่ (ให้ส่ง OTP ไปยังอีเมลของผู้ใช้แล้วตรวจสอบ)
+//   if (otp !== correctOTP) { // สมมติว่า correctOTP เป็นตัวแปรที่เก็บรหัส OTP ที่ถูกส่งไปยังอีเมลของผู้ใช้
+//     return res.json({ error: "รหัส OTP ไม่ถูกต้อง" });
+//   }
+
+//   try {
+//     // อัปเดตอีเมลใหม่ในฐานข้อมูลของผู้ใช้
+//     await Admins.updateOne({ email: req.user.email }, { $set: { email } });
+//     res.send({ status: "ok" });
+//   } catch (error) {
+//     res.send({ status: "error" });
+//   }
+// });
+
+
