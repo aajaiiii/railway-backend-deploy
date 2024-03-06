@@ -685,6 +685,41 @@ app.post("/loginmpersonnel", async (req, res) => {
   res.json({ status: "error", error: "InvAlid Password" });
 });
 
+app.post("/profiledt", async (req, res) => {
+  const { token } = req.body;
+  try {
+    const mpersonnel = jwt.verify(token, JWT_SECRET, (error, decoded) => {
+      if (error) {
+        if (error.name === "TokenExpiredError") {
+          return "token expired";
+        } else {
+          throw error; // ถ้าเกิดข้อผิดพลาดอื่นๆในการยืนยัน token ให้โยน error ไปต่อให้ catch จัดการ
+        }
+      }
+      return decoded;
+    });
+
+    console.log(mpersonnel);
+
+    if (m === "token expired") {
+      return res.send({ status: "error", data: "token expired" });
+    }
+
+    const userMP = mpersonnel.username;
+    MPersonnel.findOne({ username: userMP })
+      .then((data) => {
+        res.send({ status: "ok", data: data });
+      })
+      .catch((error) => {
+        res.send({ status: "error", data: error });
+      });
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    res.send({ status: "error", data: "token verification error" });
+  }
+});
+
+
 //ลืมรหัสผ่าน
 app.post("/forgot-passworddt", async (req, res) => {
   const { email } = req.body;
@@ -833,8 +868,8 @@ app.get("/searchequipment", async (req, res) => {
     
     const result = await Equipment.find({
       $or: [
-        { username: { $regex: regex } },
-        // { equipment_type: { $regex: regex } } 
+        { equipment_name: { $regex: regex } },
+        { equipment_type: { $regex: regex } } 
       ]
     });
 
@@ -922,6 +957,7 @@ app.get("/searchuser", async (req, res) => {
     const result = await User.find({
       $or: [
         { username: { $regex: regex } },
+        { name: { $regex: regex } },
       ]
     });
 
