@@ -779,14 +779,17 @@ app.post("/reset-passworddt/:id/:token", async (req, res) => {
     res.send({ status: "Somthing went wrong" });
   }
 });
-
+//ให้ค้นหาอักขระพิเศษได้
+function escapeRegex(text) {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
 //ค้นหาคู่มือ
 app.get("/searchcaremanual", async (req, res) => {
   try {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
-    const regex = new RegExp(keyword, "i");
+    const regex = new RegExp(escapeRegex(keyword), "i");
     
     const result = await Caremanual.find({
       $or: [
@@ -807,7 +810,7 @@ app.get("/searchmpersonnel", async (req, res) => {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
-    const regex = new RegExp(keyword, "i");
+    const regex = new RegExp(escapeRegex(keyword), "i");
     
     const result = await MPersonnel.find({
       $or: [
@@ -829,7 +832,7 @@ app.get("/searchequipment", async (req, res) => {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
-    const regex = new RegExp(keyword, "i");
+    const regex = new RegExp(escapeRegex(keyword), "i");
     
     const result = await Equipment.find({
       $or: [
@@ -850,7 +853,7 @@ app.get("/searchadmin", async (req, res) => {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
-    const regex = new RegExp(keyword, "i");
+    const regex = new RegExp(escapeRegex(keyword), "i");
     
     const result = await Admins.find({
       $or: [
@@ -917,7 +920,7 @@ app.get("/searchuser", async (req, res) => {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
-    const regex = new RegExp(keyword, "i");
+    const regex = new RegExp(escapeRegex(keyword), "i");
     
     const result = await User.find({
       $or: [
