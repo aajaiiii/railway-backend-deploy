@@ -43,6 +43,7 @@ const Equipment = mongoose.model("Equipment");
 const MPersonnel = mongoose.model("MPersonnel");
 const Caremanual = mongoose.model("Caremanual");
 const User = mongoose.model("User");
+const MedicalInformation = mongoose.model("MedicalInformation")
 // แอดมิน
 //เพิ่มข้อมูลแอดมิน
 // app.post("/addadmin", async (req, res) => {
@@ -448,6 +449,48 @@ app.post("/addcaremanual", upload, async (req, res) => {
   }
 });
 
+//เพิ่มข้อมูลเจ็บป่วย
+app.post("/addmedicalinformation", async (req, res) => {
+  const {
+      HN,
+      AN,
+      Date_Admit,
+      Date_DC,
+      Diagnosis,
+      Chief_complaint,
+      Present_illness,
+      Phychosocial_assessment,
+      Management_plan,
+  } = req.body;
+
+  try {
+    // สร้างข้อมูลการแพทย์ใหม่
+    const medicalInformation = await MedicalInformation.create({
+      HN,
+      AN,
+      Date_Admit,
+      Date_DC,
+      Diagnosis,
+      Chief_complaint,
+      Present_illness,
+      Phychosocial_assessment,
+      Management_plan,
+    });
+    res.json({ status: "ok", data: medicalInformation });
+  } catch (error) {
+    res.send({ status: "error" });
+  }
+});  
+
+// // ดึงข้อมูลผู้ป่วยมาโชว์
+app.get("/alluser", async (req, res) => {
+  try {
+    const allUser = await User.find({});
+    res.send({ status: "ok", data: allUser });
+  } catch (error) {
+    console.log(error);
+  }
+});
 app.get("/allcaremanual", async (req, res) => {
   try {
     Caremanual.find({}).then((data) => {
@@ -904,15 +947,7 @@ app.post("/adduser", async (req, res) => {
   }
 });
 
-// // ดึงข้อมูลผู้ป่วยมาโชว์
-app.get("/alluser", async (req, res) => {
-  try {
-    const allUser = await User.find({});
-    res.send({ status: "ok", data: allUser });
-  } catch (error) {
-    console.log(error);
-  }
-});
+
 
 //ค้นหาผู้ป่วย
 app.get("/searchuser", async (req, res) => {

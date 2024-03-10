@@ -108,3 +108,29 @@ const CaregiverScehma = new mongoose.Schema(
 );
 
 mongoose.model("Caregiver", CaregiverScehma);
+
+//ข้อมูลการเจ็บป่วย
+const MedicalInformationSchema = new mongoose.Schema(
+    {
+        HN: String,
+        AN: String,
+        Date_Admit: Date,
+        Date_DC: Date,
+        Diagnosis: Date,
+        Chief_complaint: String,
+        Present_illness: String,
+        // filePresent_illness: String,
+        Phychosocial_assessment: String,
+        // filePhychosocial_assessment: String,
+        Management_plan: String,
+        // fileManagement_plan: String,
+        // user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        // equipment: { type: mongoose.Schema.Types.ObjectId, ref: "Equipment" },
+        // personnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
+    },
+    {
+        collection: "MedicalInformation",
+        timestamps: true,
+    }
+);
+mongoose.model("MedicalInformation", MedicalInformationSchema);
