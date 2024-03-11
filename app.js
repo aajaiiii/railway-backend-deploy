@@ -280,6 +280,41 @@ app.post("/profile", async (req, res) => {
   }
 });
 
+//แพทย์
+// app.post("/profile", async (req, res) => {
+//   const { token } = req.body;
+//   try {
+//     const mpersonnel = jwt.verify(token, JWT_SECRET, (error, decoded) => {
+//       if (error) {
+//         if (error.name === "TokenExpiredError") {
+//           return "token expired";
+//         } else {
+//           throw error; // ถ้าเกิดข้อผิดพลาดอื่นๆในการยืนยัน token ให้โยน error ไปต่อให้ catch จัดการ
+//         }
+//       }
+//       return decoded;
+//     });
+
+//     console.log(mpersonnel);
+
+//     if (mpersonnel === "token expired") {
+//       return res.send({ status: "error", data: "token expired" });
+//     }
+
+//     const userMPersonnel = mpersonnel.username;
+//     MPersonnel.findOne({ username: userMPersonnel })
+//       .then((data) => {
+//         res.send({ status: "ok", data: data });
+//       })
+//       .catch((error) => {
+//         res.send({ status: "error", data: error });
+//       });
+//   } catch (error) {
+//     console.error("Error verifying token:", error);
+//     res.send({ status: "error", data: "token verification error" });
+//   }
+// });
+
 app.post("/addequip", async (req, res) => {
   const { equipment_name, equipment_type } = req.body;
 
@@ -880,11 +915,9 @@ app.get("/searchequipment", async (req, res) => {
     const result = await Equipment.find({
       $or: [
         { username: { $regex: regex } },
-        // { equipment_type: { $regex: regex } } 
+        { equipment_type: { $regex: regex } } 
       ]
     });
-
-
     res.json({ status: "ok", data: result });
   } catch (error) {
     res.json({ status: error });
