@@ -485,7 +485,7 @@ app.post("/addcaremanual", upload, async (req, res) => {
 });
 
 //เพิ่มข้อมูลเจ็บป่วย
-app.post("/addmedicalinformation", async (req, res) => {
+app.post("/addmedicalinformation", upload, async (req, res) => {
   const {
       HN,
       AN,
@@ -500,6 +500,23 @@ app.post("/addmedicalinformation", async (req, res) => {
 
   try {
     // สร้างข้อมูลการแพทย์ใหม่
+    let fileChief = "";
+    let filePresent = "";
+    let filePhychosocial = "";
+
+
+    if (req.files["fileC"] && req.files["fileC"][0]) {
+      fileChief = req.files["fileC"][0].fileChief;
+    }
+
+    if (req.files["fileP"] && req.files["fileP"][0]) {
+      filePresent = req.files["fileP"][0].filePresent;
+    }
+
+    if (req.files["filePhy"] && req.files["filePhy"][0]) {
+      filePhychosocial = req.files["filePhy"][0].filePhychosocial;
+    }
+
     const medicalInformation = await MedicalInformation.create({
       HN,
       AN,
@@ -510,6 +527,10 @@ app.post("/addmedicalinformation", async (req, res) => {
       Present_illness,
       Phychosocial_assessment,
       Management_plan,
+      fileC: fileChief,
+      fileP: filePresent,
+      filePhy: filePhychosocial
+      
     });
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
@@ -1205,5 +1226,6 @@ app.post("/updatenameadmin/:id", async (req, res) => {
 //     res.send({ status: "error" });
 //   }
 // });
+
 
 
