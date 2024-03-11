@@ -484,8 +484,15 @@ app.post("/addcaremanual", upload, async (req, res) => {
   }
 });
 
+
+const upload1 = multer({ storage: storage }).fields([
+  { name: "fileP",maxCount: 1 },
+  { name:"fileM",maxCount: 1 },
+  { name:"filePhy",maxCount: 1 },
+]);
+
 //เพิ่มข้อมูลเจ็บป่วย
-app.post("/addmedicalinformation", upload, async (req, res) => {
+app.post("/addmedicalinformation", upload1, async (req, res) => {
   const {
       HN,
       AN,
@@ -500,22 +507,24 @@ app.post("/addmedicalinformation", upload, async (req, res) => {
 
   try {
     // สร้างข้อมูลการแพทย์ใหม่
-    let fileChief = "";
     let filePresent = "";
+    let fileManage = "";
     let filePhychosocial = "";
 
 
-    if (req.files["fileC"] && req.files["fileC"][0]) {
-      fileChief = req.files["fileC"][0].fileChief;
+    if (req.files["fileP"] && req.files["fileP"][0]) {
+      filePresent = req.files["fileP"][0].path;
     }
 
-    if (req.files["fileP"] && req.files["fileP"][0]) {
-      filePresent = req.files["fileP"][0].filePresent;
+    if (req.files["fileM"] && req.files["fileM"][0]) {
+      fileManage = req.files["fileM"][0].path;
     }
+    
 
     if (req.files["filePhy"] && req.files["filePhy"][0]) {
-      filePhychosocial = req.files["filePhy"][0].filePhychosocial;
+      filePhychosocial = req.files["filePhy"][0].path;
     }
+    
 
     const medicalInformation = await MedicalInformation.create({
       HN,
@@ -527,11 +536,11 @@ app.post("/addmedicalinformation", upload, async (req, res) => {
       Present_illness,
       Phychosocial_assessment,
       Management_plan,
-      fileC: fileChief,
+      fileM: fileManage,
       fileP: filePresent,
       filePhy: filePhychosocial
-      
     });
+    
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
     res.send({ status: "error" });

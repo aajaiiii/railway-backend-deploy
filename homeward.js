@@ -124,7 +124,7 @@ const MedicalInformationSchema = new mongoose.Schema(
         // filePhychosocial_assessment: String,
         Management_plan: String,
         // fileManagement_plan: String,
-        fileC:String,
+        fileM:String,
         fileP:String,
         filePhy:String,
         // user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
