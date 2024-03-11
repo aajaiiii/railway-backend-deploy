@@ -949,7 +949,7 @@ app.get("/searchequipment", async (req, res) => {
     
     const result = await Equipment.find({
       $or: [
-        { username: { $regex: regex } },
+        { equipment_name: { $regex: regex } },
         { equipment_type: { $regex: regex } } 
       ]
     });
