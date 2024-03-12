@@ -523,10 +523,13 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
     if (req.files["filePhy"] && req.files["filePhy"][0]) {
       filePhychosocial = req.files["filePhy"][0].path;
     }
-    
-    const existingUser = await User.findById(userId);
-    if (!existingUser) {
-      return res.json({ error: "Invalid Admin ID" });
+
+    // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
+    const lastAddedUser = await User.findOne().sort({ _id: -1 });
+
+    // ตรวจสอบว่ามีผู้ใช้หรือไม่
+    if (!lastAddedUser) {
+      return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
     }
 
     const medicalInformation = await MedicalInformation.create({
@@ -542,15 +545,15 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       fileM: fileManage,
       fileP: filePresent,
       filePhy: filePhychosocial,
-      user: [userId], // อ้างอิงไปยัง Admin ID
-
+      user: [lastAddedUser._id], // ใช้ ID ของผู้ใช้ที่เพิ่มล่าสุด
     });
     
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
     res.send({ status: "error" });
   }
-});  
+});
+  
 
 // // ดึงข้อมูลผู้ป่วยมาโชว์
 app.get("/alluser", async (req, res) => {
