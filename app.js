@@ -511,7 +511,6 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
     let fileManage = "";
     let filePhychosocial = "";
 
-
     if (req.files["fileP"] && req.files["fileP"][0]) {
       filePresent = req.files["fileP"][0].path;
     }
@@ -525,6 +524,10 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       filePhychosocial = req.files["filePhy"][0].path;
     }
     
+    const existingUser = await User.findById(userId);
+    if (!existingUser) {
+      return res.json({ error: "Invalid Admin ID" });
+    }
 
     const medicalInformation = await MedicalInformation.create({
       HN,
@@ -538,7 +541,9 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       Management_plan,
       fileM: fileManage,
       fileP: filePresent,
-      filePhy: filePhychosocial
+      filePhy: filePhychosocial,
+      user: [userId], // อ้างอิงไปยัง Admin ID
+
     });
     
     res.json({ status: "ok", data: medicalInformation });

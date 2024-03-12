@@ -127,7 +127,8 @@ const MedicalInformationSchema = new mongoose.Schema(
         fileM:String,
         fileP:String,
         filePhy:String,
-        // user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         // equipment: { type: mongoose.Schema.Types.ObjectId, ref: "Equipment" },
         // personnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
     },
