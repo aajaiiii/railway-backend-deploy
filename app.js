@@ -561,6 +561,21 @@ app.get("/alluser", async (req, res) => {
     console.log(error);
   }
 });
+app.get("/user/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).send({ status: "error", message: "User not found" });
+    }
+    res.send({ status: "ok", data: user });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ status: "error", message: "Internal Server Error" });
+  }
+});
+
+
 app.get("/allcaremanual", async (req, res) => {
   try {
     Caremanual.find({}).then((data) => {

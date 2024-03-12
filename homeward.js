@@ -119,16 +119,12 @@ const MedicalInformationSchema = new mongoose.Schema(
         Diagnosis: Date,
         Chief_complaint: String,
         Present_illness: String,
-        // filePresent_illness: String,
         Phychosocial_assessment: String,
-        // filePhychosocial_assessment: String,
         Management_plan: String,
-        // fileManagement_plan: String,
         fileM:String,
         fileP:String,
         filePhy:String,
-        
-        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // แก้เป็น ref: "User"
         // equipment: { type: mongoose.Schema.Types.ObjectId, ref: "Equipment" },
         // personnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
     },

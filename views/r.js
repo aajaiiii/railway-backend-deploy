@@ -1,20 +1,31 @@
-app.post("/addequip", async (req, res) => {
-  const { equipment_name, equipment_type } = req.body;
+//แก้ไขผู้ป่วย
+app.post("/updateuser/:id", async (req, res) => {
+  // const { username, name, email,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
+  const { username, name, email, password,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
+  const { id } = req.params;
 
   try {
-    const oldequipment = await Equipment.findOne({ equipment_name });
+    const updatedUser = await User.findByIdAndUpdate
+    (id, {
+      username,
+      name,
+      email,
+      password,
+      tel,
+      gender,
+      birthday,
+      ID_card_number, 
+      nationality,
+      Address,
+    }, { new: true });
 
-    if (oldequipment) {
-      return res.json({ error: "Equipment Exists" });
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!updatedUser) {
+      return res.status(404).json({ status: "User not found" });
     }
 
-    // const existingAdmin = await Admins.findById(adminId);
-    // if (!existingAdmin) {
-    //   return res.json({ error: "Invalid Admin ID" });
-    // }
-
-    await Equipment.create({
-      equipment_name,
-      equipment_type,
-     // admin: [adminId], // อ้างอิงไปยัง Admin ID
-    });
+    res.json({ status: "ok", updatedUser });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
