@@ -345,35 +345,30 @@ app.post("/addequip", async (req, res) => {
 
 app.post('/addequipuser', async (req, res) => {
   try {
-    // รับข้อมูลที่ส่งมาจากไคลเอนต์
-    const { equipmentname_forUser, equipmenttype_forUser } = req.body;
+      // รับข้อมูลที่ส่งมาจากไคลเอนต์
+      const { equipmentname_forUser, equipmenttype_forUser } = req.body;
 
-    // ดึงข้อมูลอุปกรณ์ทั้งหมดที่มีอยู่ในฐานข้อมูล
-    const allEquipments = await Equipment.find({});
+      // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
+      const lastAddedUser = await User.findOne().sort({ _id: -1 });
 
-    // ตรวจสอบว่าอุปกรณ์ที่ต้องการเพิ่มมีอยู่ในฐานข้อมูลหรือไม่
-    const existingEquipment = allEquipments.find(equipment => {
-      return equipment.equipment_name === equipmentname_forUser && equipment.equipment_type === equipmenttype_forUser;
-    });
+      // ตรวจสอบว่ามีผู้ใช้หรือไม่
+      if (!lastAddedUser) {
+        return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
+      }
+      
+      // สร้างอ็อบเจ็กต์ข้อมูลใหม่ของอุปกรณ์ผู้ใช้
+      const equipuser = await EquipmentUser.create({
+          equipmentname_forUser,
+          equipmenttype_forUser,
+          user: [lastAddedUser._id],
+      });
 
-    if (!existingEquipment) {
-      return res.json({ status: "error", message: "ไม่พบข้อมูลอุปกรณ์" });
-    }
-    
-    // สร้างอ็อบเจ็กต์ข้อมูลใหม่ของอุปกรณ์ผู้ใช้
-    const equipuser = await EquipmentUser.create({
-      equipmentname_forUser,
-      equipmenttype_forUser,
-      equipment: [existingEquipment._id], // อ้างอิงไปยัง ID ของอุปกรณ์
-    });
-
-    // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
-    res.json({ status: "ok", data: equipuser });
+      // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
+      res.json({ status: "ok", data: equipuser });
   } catch (error) {
     res.send({ status: "error" });
   }
 });
-
 
 // // ดึงข้อมูลอุปกรณ์มาโชว์
 app.get("/allequip", async (req, res) => {
