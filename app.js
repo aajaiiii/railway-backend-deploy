@@ -9,7 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 var nodemailer = require("nodemailer");
 const randomstring = require('randomstring');
-
+const slugify = require("slugify");
 const cors = require("cors");
 app.use(cors());
 
@@ -369,8 +369,8 @@ app.post("/addmpersonnel", async (req, res) => {
   const { username, password, email, confirmPassword, tel, nametitle, name } =
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
-  if (!username || !password || !email || !name) {
-    return res.json({ error: "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล และชื่อ-นามสกุล"});
+  if (!username || !password || !email || !name || !nametitle) {
+    return res.json({ error: "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล"});
   }
   try {
     const oldUser = await MPersonnel.findOne({ username });
@@ -411,6 +411,19 @@ app.get("/allMpersonnel", async (req, res) => {
 
 const multer = require("multer");
 
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     const destinationPath =
+//       file.fieldname === "image"
+//         ? "../homeward/src/images/"
+//         : "../homeward/src/file/";
+//     cb(null, destinationPath);
+//   },
+//   filename: function (req, file, cb) {
+//     const uniqueSuffix = Date.now();
+//     cb(null, uniqueSuffix + file.originalname);
+//   },
+// });
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const destinationPath =
@@ -420,10 +433,15 @@ const storage = multer.diskStorage({
     cb(null, destinationPath);
   },
   filename: function (req, file, cb) {
+    const originalName = file.originalname;
+    const extension = originalName.split(".").pop();
+    const thaiFileName = originalName.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9]/g, '');
     const uniqueSuffix = Date.now();
-    cb(null, uniqueSuffix + file.originalname);
+    const newFileName = `${uniqueSuffix}-${thaiFileName}.${extension}`;
+    cb(null, newFileName);
   },
 });
+
 
 //อันนี้เพิ่มรูปได้แล้ว
 
@@ -462,7 +480,7 @@ const upload = multer({ storage: storage }).fields([
 app.post("/addcaremanual", upload, async (req, res) => {
   const { caremanual_name, detail } = req.body;
 
-  if (!caremanual_name || !imagename) {
+  if (!caremanual_name) {
     return res.json({ error: "กรุณากรอกหัวข้อ และเลือกรูปภาพ" });
   }
 
@@ -1298,3 +1316,122 @@ app.post("/updatenameadmin/:id", async (req, res) => {
 //     res.send({ status: "error" });
 //   }
 // });
+
+//แก้ไขข้อมูลการเจ็บป่วย
+// app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
+//   const {
+//     HN,
+//     AN,
+//     Date_Admit,
+//     Date_DC,
+//     Diagnosis,
+//     Chief_complaint,
+//     selectedPersonnel,
+//     Present_illness,
+//     Phychosocial_assessment,
+//     Management_plan,
+// } = req.body;
+// const { id } = req.params;
+
+//   try {
+//     let filePresent = "";
+//     let fileManage = "";
+//     let filePhychosocial = "";
+
+//     // มีรูปใหม่ไหม
+//     if (req.files["image"] && req.files["image"][0]) {
+//       imagename = req.files["image"][0].filename;
+//     }
+//     // มีไฟล์ไหม
+//     if (req.files["file"] && req.files["file"][0]) {
+//       filename = req.files["file"][0].filename;
+//     }
+//     // ตรวจสอบว่ามีการอัปเดตรูปภาพหรือไม่
+//     if (imagename !== "") {
+//       // มีการอัปเดต
+//       const updatedWithImage = await Caremanual.findByIdAndUpdate(
+//         id,
+//         {
+//           caremanual_name,
+//           image: imagename,
+//           file: filename,
+//           detail,
+//         },
+//         { new: true }
+//       );
+
+//       if (!updatedWithImage) {
+//         return res.status(404).json({ status: "Caremanual not found" });
+//       }
+
+//       res.json({ status: "ok", updatedCaremanual: updatedWithImage });
+//     } else {
+//       // ไม่มีการอัปเดต
+//       const oleCaremanual = await Caremanual.findById(id);
+
+//       if (!oleCaremanual) {
+//         return res.status(404).json({ status: "Caremanual not found" });
+//       }
+
+//       let existingFilename = "";
+//       // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
+//       if (filename !== "") {
+//         existingFilename = filename;
+//       } else {
+//         existingFilename = oleCaremanual.file;
+//       }
+
+//       // ให้ใช้ค่าเดิมของไฟล์
+//       const updatedWithoutFile = await Caremanual.findByIdAndUpdate(
+//         id,
+//         {
+//           caremanual_name,
+//           image: oleCaremanual.image,
+//           file: existingFilename,
+//           detail,
+//         },
+//         { new: true }
+//       );
+
+//       res.json({ status: "ok", updatedCaremanual: updatedWithoutFile });
+//     }
+//   } catch (error) {
+//     res.json({ status: error });
+//   }
+// });
+
+// //ดึงคู่มือมา
+// app.get("/getcaremanual/:id", async (req, res) => {
+//   const { id } = req.params;
+
+//   try {
+//     const caremanual = await Caremanual.findById(id);
+
+//     if (!caremanual) {
+//       return res.status(404).json({ error: "Caremanual not found" });
+//     }
+
+//     res.json(caremanual);
+//   } catch (error) {
+//     console.error("Error fetching caremanual:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+
+//ดึงคู่มือมา
+app.get("/getmpersonnel/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const mpersonnel = await MPersonnel.findById(id);
+
+    if (!mpersonnel) {
+      return res.status(404).json({ error: "mpersonnel not found" });
+    }
+
+    res.json(mpersonnel);
+  } catch (error) {
+    console.error("Error fetching mpersonnel:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
