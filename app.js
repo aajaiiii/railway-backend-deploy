@@ -317,7 +317,6 @@ app.post("/profile", async (req, res) => {
 
 app.post("/addequip", async (req, res) => {
   const { equipment_name, equipment_type } = req.body;
-
   try {
     const oldequipment = await Equipment.findOne({ equipment_name });
 
@@ -370,6 +369,9 @@ app.post("/addmpersonnel", async (req, res) => {
   const { username, password, email, confirmPassword, tel, nametitle, name } =
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
+  if (!username || !password || !email || !name) {
+    return res.json({ error: "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล และชื่อ-นามสกุล"});
+  }
   try {
     const oldUser = await MPersonnel.findOne({ username });
     //ชื่อมีในระบบไหม
@@ -460,6 +462,10 @@ const upload = multer({ storage: storage }).fields([
 app.post("/addcaremanual", upload, async (req, res) => {
   const { caremanual_name, detail } = req.body;
 
+  if (!caremanual_name || !imagename) {
+    return res.json({ error: "กรุณากรอกหัวข้อ และเลือกรูปภาพ" });
+  }
+
   try {
     let imagename = "";
     let filename = "";
@@ -490,6 +496,7 @@ const upload1 = multer({ storage: storage }).fields([
   { name:"fileM",maxCount: 1 },
   { name:"filePhy",maxCount: 1 },
 ]);
+
 
 //เพิ่มข้อมูลเจ็บป่วย
 app.post("/addmedicalinformation", upload1, async (req, res) => {
@@ -1069,8 +1076,8 @@ app.get("/searchadmin", async (req, res) => {
 //ผู้ป่วย
 app.post("/adduser", async (req, res) => {
   const { username, name, email, password, confirmPassword,tel,gender,birthday,ID_card_number, nationality,Address } = req.body;
-  if (!username || !password || !email) {
-    return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
+  if (!username || !password || !email || !name) {
+    return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน อีเมล และชื่อ-นามสกุล" });
   }
   const encryptedPassword = await bcrypt.hash(password, 10);
   try {
