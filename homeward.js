@@ -32,6 +32,19 @@ const equipmentScehma = new mongoose.Schema(
 
 mongoose.model("Equipment",equipmentScehma);
 
+
+const equipmentuserScehma = new mongoose.Schema(
+    {
+        equipmentname_forUser:String,
+        equipmenttype_forUser:String,
+    },
+    {
+        collection: "EquipmentUser",
+    }
+);
+
+mongoose.model("EquipmentUser",equipmentuserScehma);
+
 const MPersonnelScehma = new mongoose.Schema(
     {
         username:{ type: String, unique: true } ,

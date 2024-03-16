@@ -44,6 +44,7 @@ const MPersonnel = mongoose.model("MPersonnel");
 const Caremanual = mongoose.model("Caremanual");
 const User = mongoose.model("User");
 const MedicalInformation = mongoose.model("MedicalInformation")
+const EquipmentUser = mongoose.model("EquipmentUser")
 // แอดมิน
 //เพิ่มข้อมูลแอดมิน
 // app.post("/addadmin", async (req, res) => {
@@ -341,6 +342,38 @@ app.post("/addequip", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
+app.post('/addequipuser', async (req, res) => {
+  try {
+    // รับข้อมูลที่ส่งมาจากไคลเอนต์
+    const { equipmentname_forUser, equipmenttype_forUser } = req.body;
+
+    // ดึงข้อมูลอุปกรณ์ทั้งหมดที่มีอยู่ในฐานข้อมูล
+    const allEquipments = await Equipment.find({});
+
+    // ตรวจสอบว่าอุปกรณ์ที่ต้องการเพิ่มมีอยู่ในฐานข้อมูลหรือไม่
+    const existingEquipment = allEquipments.find(equipment => {
+      return equipment.equipment_name === equipmentname_forUser && equipment.equipment_type === equipmenttype_forUser;
+    });
+
+    if (!existingEquipment) {
+      return res.json({ status: "error", message: "ไม่พบข้อมูลอุปกรณ์" });
+    }
+    
+    // สร้างอ็อบเจ็กต์ข้อมูลใหม่ของอุปกรณ์ผู้ใช้
+    const equipuser = await EquipmentUser.create({
+      equipmentname_forUser,
+      equipmenttype_forUser,
+      equipment: [existingEquipment._id], // อ้างอิงไปยัง ID ของอุปกรณ์
+    });
+
+    // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
+    res.json({ status: "ok", data: equipuser });
+  } catch (error) {
+    res.send({ status: "error" });
+  }
+});
+
 
 // // ดึงข้อมูลอุปกรณ์มาโชว์
 app.get("/allequip", async (req, res) => {
