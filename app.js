@@ -44,6 +44,7 @@ const MPersonnel = mongoose.model("MPersonnel");
 const Caremanual = mongoose.model("Caremanual");
 const User = mongoose.model("User");
 const MedicalInformation = mongoose.model("MedicalInformation")
+const EquipmentUser = mongoose.model("EquipmentUser")
 // แอดมิน
 //เพิ่มข้อมูลแอดมิน
 // app.post("/addadmin", async (req, res) => {
@@ -338,6 +339,33 @@ app.post("/addequip", async (req, res) => {
     res.send({ status: "ok" });
   } catch (error) {
     console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+app.post('/addequipuser', async (req, res) => {
+  try {
+      // รับข้อมูลที่ส่งมาจากไคลเอนต์
+      const { equipmentname_forUser, equipmenttype_forUser } = req.body;
+
+      // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
+      const lastAddedUser = await User.findOne().sort({ _id: -1 });
+
+      // ตรวจสอบว่ามีผู้ใช้หรือไม่
+      if (!lastAddedUser) {
+        return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
+      }
+      
+      // สร้างอ็อบเจ็กต์ข้อมูลใหม่ของอุปกรณ์ผู้ใช้
+      const equipuser = await EquipmentUser.create({
+          equipmentname_forUser,
+          equipmenttype_forUser,
+          user: [lastAddedUser._id],
+      });
+
+      // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
+      res.json({ status: "ok", data: equipuser });
+  } catch (error) {
     res.send({ status: "error" });
   }
 });

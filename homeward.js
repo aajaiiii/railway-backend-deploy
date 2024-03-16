@@ -4,24 +4,24 @@ const mongoose = require("mongoose");
 
 const UserDetailsScehma = new mongoose.Schema(
     {
-        username:{type:String, unique:true},
-        name:String,
+        username: { type: String, unique: true },
+        name: String,
         email: { type: String, unique: true },
-        password:String
+        password: String
     },
     {
         collection: "Admin",
     }
 );
 
-mongoose.model("Admin",UserDetailsScehma);
+mongoose.model("Admin", UserDetailsScehma);
 
 
 
 const equipmentScehma = new mongoose.Schema(
     {
-        equipment_name:String,
-        equipment_type:String,
+        equipment_name: String,
+        equipment_type: String,
         // admin:[{type: mongoose.Schema.Types.ObjectId,ref:'Admin'}]
 
     },
@@ -30,17 +30,34 @@ const equipmentScehma = new mongoose.Schema(
     }
 );
 
-mongoose.model("Equipment",equipmentScehma);
+mongoose.model("Equipment", equipmentScehma);
+
+
+const equipmentuserScehma = new mongoose.Schema(
+    {
+        equipmentname_forUser: String,
+        equipmenttype_forUser: String,
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }
+    },
+    {
+        collection: "EquipmentUser",
+    }
+);
+
+mongoose.model("EquipmentUser", equipmentuserScehma);
 
 const MPersonnelScehma = new mongoose.Schema(
     {
-        username:{ type: String, unique: true } ,
-        password:String,
+        username: { type: String, unique: true },
+        password: String,
         email: { type: String, unique: true },
-        tel:String,
-        nametitle:String,
-        name:String,
-        
+        tel: String,
+        nametitle: String,
+        name: String,
+
 
     },
     {
@@ -54,11 +71,11 @@ mongoose.model("MPersonnel", MPersonnelScehma);
 
 const CaremanualScehma = new mongoose.Schema(
     {
-        caremanual_name:String,
-        image:String,
-        file:String,
-        detail:String,
-        
+        caremanual_name: String,
+        image: String,
+        file: String,
+        detail: String,
+
     },
     {
         collection: "Caremanual",
@@ -72,19 +89,19 @@ mongoose.model("Caremanual", CaremanualScehma);
 //ผู้ป่วย
 const UserScehma = new mongoose.Schema(
     {
-        username:{ type: String, unique: true } ,
-        password:String,
-        email: { type: String, unique: true }, 
-        tel:String,
-        name:String,
-        gender:String,
-        birthday:Date,
-        ID_card_number:String,
-        nationality:String,
-        Address:String,
-         
-     // caregiver:[{type: mongoose.Schema.Types.ObjectId,ref:'Caregiver'}]
-    
+        username: { type: String, unique: true },
+        password: String,
+        email: { type: String, unique: true },
+        tel: String,
+        name: String,
+        gender: String,
+        birthday: Date,
+        ID_card_number: String,
+        nationality: String,
+        Address: String,
+
+        // caregiver:[{type: mongoose.Schema.Types.ObjectId,ref:'Caregiver'}]
+
     },
     {
         collection: "User",
@@ -97,9 +114,9 @@ mongoose.model("User", UserScehma);
 //ผู้ดูแล
 const CaregiverScehma = new mongoose.Schema(
     {
-        name:String,
-        Relationship:String,
-        tel:String,
+        name: String,
+        Relationship: String,
+        tel: String,
     },
     {
         collection: "Caregiver",
@@ -122,9 +139,9 @@ const MedicalInformationSchema = new mongoose.Schema(
         selectedPersonnel: String,
         Phychosocial_assessment: String,
         Management_plan: String,
-        fileM:String,
-        fileP:String,
-        filePhy:String,
+        fileM: String,
+        fileP: String,
+        filePhy: String,
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // แก้เป็น ref: "User"
         // equipment: { type: mongoose.Schema.Types.ObjectId, ref: "Equipment" },
         // personnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
