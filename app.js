@@ -1463,3 +1463,17 @@ app.get("/getmpersonnel/:id", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+app.get("/equipmentuser/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const equipmentusers = await EquipmentUser.findOne({ user: id });
+    if (!equipmentusers) {
+      return res.status(404).send({ status: "error", message: "Medical information not found for this user" });
+    }
+    res.send({ status: "ok", data: equipmentusers });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ status: "error", message: "Internal Server Error" });
+  }
+});
