@@ -346,7 +346,7 @@ app.post("/addequip", async (req, res) => {
 app.post('/addequipuser', async (req, res) => {
   try {
       // รับข้อมูลที่ส่งมาจากไคลเอนต์
-      const { equipmentname_forUser, equipmenttype_forUser } = req.body;
+      const equipments = req.body;
 
       // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
       const lastAddedUser = await User.findOne().sort({ _id: -1 });
@@ -356,17 +356,32 @@ app.post('/addequipuser', async (req, res) => {
         return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
       }
       
-      // สร้างอ็อบเจ็กต์ข้อมูลใหม่ของอุปกรณ์ผู้ใช้
-      const equipuser = await EquipmentUser.create({
-          equipmentname_forUser,
-          equipmenttype_forUser,
-          user: [lastAddedUser._id],
-      });
+      // สร้างอาเรย์ของอุปกรณ์ผู้ใช้
+      const equipmentUsers = equipments.map(equip => ({
+        equipmentname_forUser: equip.equipmentname_forUser,
+        equipmenttype_forUser: equip.equipmenttype_forUser,
+        user: lastAddedUser._id
+      }));
+
+      // เพิ่มข้อมูลอุปกรณ์ผู้ใช้ลงในฐานข้อมูล
+      const equipusers = await EquipmentUser.create(equipmentUsers);
 
       // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
-      res.json({ status: "ok", data: equipuser });
+      res.json({ status: "ok", data: equipusers });
   } catch (error) {
     res.send({ status: "error" });
+  }
+});
+// Assuming you have an Express route to handle fetching equipment for a user
+app.get('/equipment/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    // Find all equipment associated with the user ID
+    const equipment = await EquipmentUser.find({ user: userId });
+    res.json(equipment);
+  } catch (error) {
+    console.error("Error fetching equipment:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
