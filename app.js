@@ -1365,6 +1365,189 @@ app.post("/updatenameadmin/:id", async (req, res) => {
 
 
 //แก้ไขข้อมูลการเจ็บป่วย
+// app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
+//   const {
+//     HN,
+//     AN,
+//     Date_Admit,
+//     Date_DC,
+//     Diagnosis,
+//     Chief_complaint,
+//     Present_illness,
+//     Phychosocial_assessment,
+//     Management_plan,
+//   } = req.body;
+//   const { id } = req.params;
+
+//   try {
+//     let filePresent = "";
+//     let fileManage = "";
+//     let filePhychosocial = "";
+
+//     if (req.files["fileP"] && req.files["fileP"][0]) {
+//       filePresent = req.files["fileP"][0].path;
+//     }
+
+//     if (req.files["fileM"] && req.files["fileM"][0]) {
+//       fileManage = req.files["fileM"][0].path;
+//     }
+
+//     if (req.files["filePhy"] && req.files["filePhy"][0]) {
+//       filePhychosocial = req.files["filePhy"][0].path;
+//     }
+
+//     if (filePresent !== "" || fileManage !== "" || filePhychosocial !== "") {
+//       // มีการอัปเดต
+//       const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
+//         id,
+//         {
+//           HN,
+//           AN,
+//           Date_Admit,
+//           Date_DC,
+//           Diagnosis,
+//           Chief_complaint,
+//           Present_illness,
+//           Phychosocial_assessment,
+//           Management_plan,
+//           fileP: filePresent,
+//           fileM: fileManage,
+//           filePhy: filePhychosocial,
+//         },
+//         { new: true }
+//       );
+    
+//       if (!updatedMedicalInformation) {
+//         return res.status(404).json({ status: "Medical information not found" });
+//       }
+    
+//       res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
+//     } else {
+//       const oldMedicalInfo = await MedicalInformation.findById(id);
+    
+//       if (!oldMedicalInfo) {
+//         return res.status(404).json({ status: "Medical information not found" });
+//       }
+    
+//       // ให้ใช้ค่าเดิมของ selectedPersonnel
+//       const updatedMedicalInfoWithoutFiles = await MedicalInformation.findByIdAndUpdate(
+//         id,
+//         {
+//           HN,
+//           AN,
+//           Date_Admit,
+//           Date_DC,
+//           Diagnosis,
+//           Chief_complaint,
+//           Present_illness,
+//           Phychosocial_assessment,
+//           Management_plan,
+//           selectedPersonnel: oldMedicalInfo.selectedPersonnel,
+//         },
+//         { new: true }
+//       );
+    
+//       res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInfoWithoutFiles });
+//     }
+    
+//   } catch (error) {
+//     res.json({ status: error });
+//   }
+// });
+
+//แก้ไขข้อมูลการเจ็บป่วย
+// app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
+//   const {
+//     HN,
+//     AN,
+//     Date_Admit,
+//     Date_DC,
+//     Diagnosis,
+//     Chief_complaint,
+//     Present_illness,
+//     Phychosocial_assessment,
+//     Management_plan,
+//   } = req.body;
+//   const { id } = req.params;
+
+//   try {
+//     let filePresent = "";
+//     let fileManage = "";
+//     let filePhychosocial = "";
+
+//     if (req.files["fileP"] && req.files["fileP"][0]) {
+//       filePresent = req.files["fileP"][0].path;
+//     }
+
+//     if (req.files["fileM"] && req.files["fileM"][0]) {
+//       fileManage = req.files["fileM"][0].path;
+//     }
+
+//     if (req.files["filePhy"] && req.files["filePhy"][0]) {
+//       filePhychosocial = req.files["filePhy"][0].path;
+//     }
+
+//     if (filePresent !== "" || fileManage !== "" || filePhychosocial !== "") {
+//       // มีการอัปเดต
+//       const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
+//         id,
+//         {
+//           HN,
+//           AN,
+//           Date_Admit,
+//           Date_DC,
+//           Diagnosis,
+//           Chief_complaint,
+//           Present_illness,
+//           Phychosocial_assessment,
+//           Management_plan,
+//           fileP: filePresent,
+//           fileM: fileManage,
+//           filePhy: filePhychosocial,
+//         },
+//         { new: true }
+//       );
+    
+//       if (!updatedMedicalInformation) {
+//         return res.status(404).json({ status: "Medical information not found" });
+//       }
+    
+//       res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
+//     } else {
+//       const oldMedicalInfo = await MedicalInformation.findById(id);
+    
+//       if (!oldMedicalInfo) {
+//         return res.status(404).json({ status: "Medical information not found" });
+//       }
+    
+//       // ให้ใช้ค่าเดิมของไฟล์และ selectedPersonnel
+//       const updatedMedicalInfoWithoutFiles = await MedicalInformation.findByIdAndUpdate(
+//         id,
+//         {
+//           HN,
+//           AN,
+//           Date_Admit,
+//           Date_DC,
+//           Diagnosis,
+//           Chief_complaint,
+//           Present_illness,
+//           Phychosocial_assessment,
+//           Management_plan,
+//           fileP: oldMedicalInfo.fileP,
+//           fileM: oldMedicalInfo.fileM,
+//           filePhy: oldMedicalInfo.filePhy,
+//           selectedPersonnel: oldMedicalInfo.selectedPersonnel,
+//         },
+//         { new: true }
+//       );
+    
+//       res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInfoWithoutFiles });
+//     }
+    
+//   } catch (error) {
+//     res.json({ status: error });
+//   }
+// });
 app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
   const {
     HN,
@@ -1378,6 +1561,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
     Management_plan,
   } = req.body;
   const { id } = req.params;
+  
 
   try {
     let filePresent = "";
@@ -1396,64 +1580,68 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
       filePhychosocial = req.files["filePhy"][0].path;
     }
 
-    if (filePresent !== "" || fileManage !== "" || filePhychosocial !== "") {
-      // มีการอัปเดต
-      const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
-        id,
-        {
-          HN,
-          AN,
-          Date_Admit,
-          Date_DC,
-          Diagnosis,
-          Chief_complaint,
-          Present_illness,
-          Phychosocial_assessment,
-          Management_plan,
-          filePresent,
-          fileManage,
-          filePhychosocial,
-        },
-        { new: true }
-      );
-    
-      if (!updatedMedicalInformation) {
-        return res.status(404).json({ status: "Medical information not found" });
-      }
-    
-      res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
-    } else {
-      const oldMedicalInfo = await MedicalInformation.findById(id);
-    
-      if (!oldMedicalInfo) {
-        return res.status(404).json({ status: "Medical information not found" });
-      }
-    
-      // ให้ใช้ค่าเดิมของ selectedPersonnel
-      const updatedMedicalInfoWithoutFiles = await MedicalInformation.findByIdAndUpdate(
-        id,
-        {
-          HN,
-          AN,
-          Date_Admit,
-          Date_DC,
-          Diagnosis,
-          Chief_complaint,
-          Present_illness,
-          Phychosocial_assessment,
-          Management_plan,
-          selectedPersonnel: oldMedicalInfo.selectedPersonnel,
-        },
-        { new: true }
-      );
-    
-      res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInfoWithoutFiles });
+    const oldMedicalInfo = await MedicalInformation.findById(id);
+
+    if (!oldMedicalInfo) {
+      return res.status(404).json({ status: "Medical information not found" });
     }
+
+    let existingFilename = "";
+    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
+    if (filePresent !== "") {
+      existingFilename = filePresent;
+    } else {
+      existingFilename = oldMedicalInfo.fileP;
+    }
+    
+    let existingFilename1 = "";
+    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
+    if (fileManage !== "") {
+      existingFilename1 = fileManage;
+    } else {
+      existingFilename1 = oldMedicalInfo.fileM;
+    }
+
+    let existingFilename2 = "";
+    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
+    if (filePhychosocial !== "") {
+      existingFilename2 = filePhychosocial;
+    } else {
+      existingFilename2 = oldMedicalInfo.filePhy;
+    }
+
+    const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
+      id,
+      {
+      HN,
+      AN,
+      Date_Admit,
+      Date_DC,
+      Diagnosis,
+      Chief_complaint,
+      Present_illness,
+      Phychosocial_assessment,
+      Management_plan,
+      fileP: existingFilename,
+      fileM: existingFilename1,
+      filePhy: existingFilename2,
+      selectedPersonnel: oldMedicalInfo.selectedPersonnel,
+    },
+    { new: true }
+);
+
+    if (!updatedMedicalInformation) {
+      return res.status(404).json({ status: "Medical information not found" });
+    }
+
+    res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
     
   } catch (error) {
     res.json({ status: error });
   }
 });
+
+
 
 
 
