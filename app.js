@@ -70,7 +70,6 @@ const EquipmentUser = mongoose.model("EquipmentUser")
 //     res.send({ status: "error" });
 //   }
 // });
-
 app.post("/addadmin", async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
   if (!username || !password || !email) {
@@ -148,8 +147,8 @@ app.post("/forgot-password", async (req, res) => {
     var mailOptions = {
       from: "oysasitorn@gmail.com",
       to: email,
-      subject: "เปลี่ยนรหัสผ่าน Homeward",
-      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nกรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
+      subject: "Reset your password for Homeward",
+      text: `Hello,\n\nFollow this link to reset your Homeward password for your ${email} account.\n${link}\n\nIf you didn't ask to reset your password,you can ignore this email.\n\nThanks,\n\nYour Homeward team`,
     };
 
     transporter.sendMail(mailOptions, function (error, info) {
@@ -1574,6 +1573,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
     Present_illness,
     Phychosocial_assessment,
     Management_plan,
+    selectedPersonnel,
   } = req.body;
   const { id } = req.params;
   
@@ -1640,7 +1640,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
       fileP: existingFilename,
       fileM: existingFilename1,
       filePhy: existingFilename2,
-      selectedPersonnel: oldMedicalInfo.selectedPersonnel,
+      selectedPersonnel: selectedPersonnel,
     },
     { new: true }
 );
