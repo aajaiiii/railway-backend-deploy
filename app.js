@@ -1449,11 +1449,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
 });
 
 
-
-
-
-
-//ดึงคู่มือมา
+//ดึงแพทย์มา
 app.get("/getmpersonnel/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -1470,6 +1466,29 @@ app.get("/getmpersonnel/:id", async (req, res) => {
   }
 });
 
+//แก้ไขอุปกรณ์
+app.post("/updatemp/:id", async (req, res) => {
+  const { username, password, email, confirmPassword, tel, nametitle, name  } = req.body;
+  const { id } = req.params;
+
+  try {
+    const UpdatedMP = await MPersonnel.findByIdAndUpdate
+    (id, {
+      username, password, email, confirmPassword, tel, nametitle, name
+    }, { new: true });
+
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!UpdatedMP) {
+      return res.status(404).json({ status: "Equip not found" });
+    }
+
+    res.json({ status: "ok", UpdatedMP});
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+
 app.get("/equipmentuser/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -1481,5 +1500,48 @@ app.get("/equipmentuser/:id", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).send({ status: "error", message: "Internal Server Error" });
+  }
+});
+
+
+//ดึงคู่ข้อมูลอุปกรณ์
+app.get("/getequip/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const equip = await Equipment.findById(id);
+
+    if (!equip) {
+      return res.status(404).json({ error: "equip not found" });
+    }
+
+    res.json(equip);
+  } catch (error) {
+    console.error("Error fetching equip:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+//แก้ไขอุปกรณ์
+app.post("/updateequip/:id", async (req, res) => {
+  const { equipment_name,equipment_type  } = req.body;
+  const { id } = req.params;
+
+  try {
+    const UpdatedEquipment = await Equipment.findByIdAndUpdate
+    (id, {
+      equipment_name,
+      equipment_type,
+    }, { new: true });
+
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!UpdatedEquipment) {
+      return res.status(404).json({ status: "Equip not found" });
+    }
+
+    res.json({ status: "ok", UpdatedEquipment});
+  } catch (error) {
+    res.json({ status: error });
   }
 });
