@@ -909,6 +909,8 @@ app.post("/loginmpersonnel", async (req, res) => {
   res.json({ status: "error", error: "InvAlid Password" });
 });
 
+
+//โปรไฟล์หมอ
 app.post("/profiledt", async (req, res) => {
   const { token } = req.body;
   try {
@@ -925,7 +927,7 @@ app.post("/profiledt", async (req, res) => {
 
     console.log(mpersonnel);
 
-    if (m === "token expired") {
+    if (mpersonnel === "token expired") {
       return res.send({ status: "error", data: "token expired" });
     }
 
@@ -943,6 +945,55 @@ app.post("/profiledt", async (req, res) => {
   }
 });
 
+//เปลี่ยนรหัส หมอ
+app.post("/updatepassword/:id", async (req, res) => {
+  const { password, newPassword, confirmNewPassword } = req.body;
+  const id = req.params.id;
+
+  try {
+    if (newPassword.trim() !== confirmNewPassword.trim()) {
+      return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
+    }
+    const mpersonnel = await MPersonnel.findById(id);
+
+    //รหัสตรงกับในฐานข้อมูลไหม
+    const isPasswordValid = await bcrypt.compare(password, mpersonnel.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "รหัสผ่านเก่าไม่ถูกต้อง" });
+    }
+
+    //
+    const encryptedNewPassword = await bcrypt.hash(newPassword, 10);
+    // อัปเดตรหัสผ่าน
+    await MPersonnel.findByIdAndUpdate(id, { password: encryptedNewPassword });
+
+    res
+      .status(200)
+      .json({ status: "ok", message: "รหัสผ่านถูกอัปเดตเรียบร้อยแล้ว" });
+  } catch (error) {
+    console.error("Error during password update:", error);
+    res.status(500).json({ error: "มีข้อผิดพลาดในการอัปเดตรหัสผ่าน" });
+  }
+});
+
+
+//แก้ไขโปรไฟล์หมอ
+app.post("/updateprofile/:id", async (req, res) => {
+  const { nametitle,name,tel } = req.body;
+  const id = req.params.id;
+  try {
+    // อัปเดตชื่อของ admin
+    // const admin = await Admins.findById(id);
+    await MPersonnel.findByIdAndUpdate(id, {nametitle,name,tel});
+
+    res
+      .status(200)
+      .json({ status: "ok", message: "ชื่อผู้ใช้ถูกอัปเดตเรียบร้อยแล้ว" });
+  } catch (error) {
+    console.error("Error during name update:", error);
+    res.status(500).json({ error: "มีข้อผิดพลาดในการอัปเดตชื่อผู้ใช้" });
+  }
+});
 
 //ลืมรหัสผ่าน
 app.post("/forgot-passworddt", async (req, res) => {
@@ -972,8 +1023,8 @@ app.post("/forgot-passworddt", async (req, res) => {
     var mailOptions = {
       from: "oysasitorn@gmail.com",
       to: email,
-      subject: "เปลี่ยนรหัสผ่าน Homeward",
-      text: `คุณได้ทำการแจ้งลืมรหัสผ่าน Homeward\n\nกรุณาคลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:\n\n${link}`,
+      subject: "Reset your password for Homeward",
+      text: `Hello,\n\nFollow this link to reset your Homeward password for your ${email} account.\n${link}\n\nIf you didn't ask to reset your password,you can ignore this email.\n\nThanks,\n\nYour Homeward team`,
     };
 
     transporter.sendMail(mailOptions, function (error, info) {
@@ -1127,6 +1178,7 @@ app.get("/searchadmin", async (req, res) => {
 
 
 //ผู้ป่วย
+//*******************//
 app.post("/adduser", async (req, res) => {
   const { username, name, email, password, confirmPassword,tel,gender,birthday,ID_card_number, nationality,Address } = req.body;
   if (!username || !password || !email || !name) {
@@ -1160,6 +1212,31 @@ app.post("/adduser", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
+//loginuser
+app.post("/loginuser", async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await User.findOne({ username });
+  if (!user) {
+    return res.json({ error: "User Not found" });
+  }
+  if (await bcrypt.compare(password, user.password)) {
+    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    if (res.status(201)) {
+      return res.json({ status: "ok", data: token });
+    } else {
+      return res.json({ error: "error" });
+    }
+  }
+  res.json({ status: "error", error: "InvAlid Password" });
+});
+
+
+
 
 
 
