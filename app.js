@@ -8,12 +8,11 @@ app.use(express.urlencoded({ extended: false }));
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 var nodemailer = require("nodemailer");
-const randomstring = require('randomstring');
+const randomstring = require("randomstring");
 const slugify = require("slugify");
 const cors = require("cors");
 app.use(cors());
-
-
+const { google } = require("googleapis");
 
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
@@ -43,8 +42,8 @@ const Equipment = mongoose.model("Equipment");
 const MPersonnel = mongoose.model("MPersonnel");
 const Caremanual = mongoose.model("Caremanual");
 const User = mongoose.model("User");
-const MedicalInformation = mongoose.model("MedicalInformation")
-const EquipmentUser = mongoose.model("EquipmentUser")
+const MedicalInformation = mongoose.model("MedicalInformation");
+const EquipmentUser = mongoose.model("EquipmentUser");
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
@@ -73,7 +72,6 @@ app.post("/addadmin", async (req, res) => {
     res.send({ status: "error" });
   }
 });
-
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -221,7 +219,6 @@ app.post("/updateadmin/:id", async (req, res) => {
   }
 });
 
-
 app.post("/profile", async (req, res) => {
   const { token } = req.body;
   try {
@@ -308,7 +305,7 @@ app.post("/addequip", async (req, res) => {
     await Equipment.create({
       equipment_name,
       equipment_type,
-     // admin: [adminId], // อ้างอิงไปยัง Admin ID
+      // admin: [adminId], // อ้างอิงไปยัง Admin ID
     });
 
     res.send({ status: "ok" });
@@ -318,37 +315,37 @@ app.post("/addequip", async (req, res) => {
   }
 });
 
-app.post('/addequipuser', async (req, res) => {
+app.post("/addequipuser", async (req, res) => {
   try {
-      // รับข้อมูลที่ส่งมาจากไคลเอนต์
-      const equipments = req.body;
+    // รับข้อมูลที่ส่งมาจากไคลเอนต์
+    const equipments = req.body;
 
-      // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
-      const lastAddedUser = await User.findOne().sort({ _id: -1 });
+    // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
+    const lastAddedUser = await User.findOne().sort({ _id: -1 });
 
-      // ตรวจสอบว่ามีผู้ใช้หรือไม่
-      if (!lastAddedUser) {
-        return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
-      }
-      
-      // สร้างอาเรย์ของอุปกรณ์ผู้ใช้
-      const equipmentUsers = equipments.map(equip => ({
-        equipmentname_forUser: equip.equipmentname_forUser,
-        equipmenttype_forUser: equip.equipmenttype_forUser,
-        user: lastAddedUser._id
-      }));
+    // ตรวจสอบว่ามีผู้ใช้หรือไม่
+    if (!lastAddedUser) {
+      return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
+    }
 
-      // เพิ่มข้อมูลอุปกรณ์ผู้ใช้ลงในฐานข้อมูล
-      const equipusers = await EquipmentUser.create(equipmentUsers);
+    // สร้างอาเรย์ของอุปกรณ์ผู้ใช้
+    const equipmentUsers = equipments.map((equip) => ({
+      equipmentname_forUser: equip.equipmentname_forUser,
+      equipmenttype_forUser: equip.equipmenttype_forUser,
+      user: lastAddedUser._id,
+    }));
 
-      // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
-      res.json({ status: "ok", data: equipusers });
+    // เพิ่มข้อมูลอุปกรณ์ผู้ใช้ลงในฐานข้อมูล
+    const equipusers = await EquipmentUser.create(equipmentUsers);
+
+    // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
+    res.json({ status: "ok", data: equipusers });
   } catch (error) {
     res.send({ status: "error" });
   }
 });
 // Assuming you have an Express route to handle fetching equipment for a user
-app.get('/equipment/:userId', async (req, res) => {
+app.get("/equipment/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
     // Find all equipment associated with the user ID
@@ -388,7 +385,10 @@ app.post("/addmpersonnel", async (req, res) => {
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
   if (!username || !password || !email || !name || !nametitle) {
-    return res.json({ error: "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล"});
+    return res.json({
+      error:
+        "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล",
+    });
   }
   try {
     const oldUser = await MPersonnel.findOne({ username });
@@ -414,7 +414,6 @@ app.post("/addmpersonnel", async (req, res) => {
   }
 });
 
-
 app.get("/allMpersonnel", async (req, res) => {
   try {
     const allMpersonnel = await MPersonnel.find({});
@@ -423,7 +422,6 @@ app.get("/allMpersonnel", async (req, res) => {
     console.log(error);
   }
 });
-
 
 //addคู่มือ ได้ละ
 
@@ -453,13 +451,12 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const originalName = file.originalname;
     const extension = originalName.split(".").pop();
-    const thaiFileName = originalName.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9]/g, '');
+    const thaiFileName = originalName.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9]/g, "");
     const uniqueSuffix = Date.now();
     const newFileName = `${uniqueSuffix}-${thaiFileName}.${extension}`;
     cb(null, newFileName);
   },
 });
-
 
 //อันนี้เพิ่มรูปได้แล้ว
 
@@ -526,27 +523,25 @@ app.post("/addcaremanual", upload, async (req, res) => {
   }
 });
 
-
 const upload1 = multer({ storage: storage }).fields([
-  { name: "fileP",maxCount: 1 },
-  { name:"fileM",maxCount: 1 },
-  { name:"filePhy",maxCount: 1 },
+  { name: "fileP", maxCount: 1 },
+  { name: "fileM", maxCount: 1 },
+  { name: "filePhy", maxCount: 1 },
 ]);
-
 
 //เพิ่มข้อมูลเจ็บป่วย
 app.post("/addmedicalinformation", upload1, async (req, res) => {
   const {
-      HN,
-      AN,
-      Date_Admit,
-      Date_DC,
-      Diagnosis,
-      Chief_complaint,
-      selectedPersonnel,
-      Present_illness,
-      Phychosocial_assessment,
-      Management_plan,
+    HN,
+    AN,
+    Date_Admit,
+    Date_DC,
+    Diagnosis,
+    Chief_complaint,
+    selectedPersonnel,
+    Present_illness,
+    Phychosocial_assessment,
+    Management_plan,
   } = req.body;
 
   try {
@@ -562,7 +557,6 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
     if (req.files["fileM"] && req.files["fileM"][0]) {
       fileManage = req.files["fileM"][0].path;
     }
-    
 
     if (req.files["filePhy"] && req.files["filePhy"][0]) {
       filePhychosocial = req.files["filePhy"][0].path;
@@ -592,16 +586,15 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       filePhy: filePhychosocial,
       user: [lastAddedUser._id], // ใช้ ID ของผู้ใช้ที่เพิ่มล่าสุด
     });
-    
+
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
     res.send({ status: "error" });
   }
 });
-  
 
 // app.get("/medicalInformation/:id", async (req, res) => {
-//   const { id } = req.params;  
+//   const { id } = req.params;
 //   try {
 //     const medicalInfo = await MedicalInformation.findOne({ id: id });
 //     if (!medicalInfo) {
@@ -619,7 +612,12 @@ app.get("/medicalInformation/:id", async (req, res) => {
   try {
     const medicalInfo = await MedicalInformation.findOne({ user: id });
     if (!medicalInfo) {
-      return res.status(404).send({ status: "error", message: "Medical information not found for this user" });
+      return res
+        .status(404)
+        .send({
+          status: "error",
+          message: "Medical information not found for this user",
+        });
     }
     res.send({ status: "ok", data: medicalInfo });
   } catch (error) {
@@ -645,9 +643,6 @@ app.get("/medicalInformation/:id", async (req, res) => {
 //   }
 // });
 
-
-
-
 // // ดึงข้อมูลผู้ป่วยมาโชว์
 app.get("/alluser", async (req, res) => {
   try {
@@ -657,12 +652,15 @@ app.get("/alluser", async (req, res) => {
     console.log(error);
   }
 });
+
 app.get("/user/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).send({ status: "error", message: "User not found" });
+      return res
+        .status(404)
+        .send({ status: "error", message: "User not found" });
     }
     res.send({ status: "ok", data: user });
   } catch (error) {
@@ -670,7 +668,6 @@ app.get("/user/:id", async (req, res) => {
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
-
 
 app.get("/allcaremanual", async (req, res) => {
   try {
@@ -885,7 +882,6 @@ app.get("/getcaremanual/:id", async (req, res) => {
   }
 });
 
-
 //ฝั่งแพทย์
 //login
 app.post("/loginmpersonnel", async (req, res) => {
@@ -908,7 +904,6 @@ app.post("/loginmpersonnel", async (req, res) => {
   }
   res.json({ status: "error", error: "InvAlid Password" });
 });
-
 
 //โปรไฟล์หมอ
 app.post("/profiledt", async (req, res) => {
@@ -976,15 +971,14 @@ app.post("/updatepassword/:id", async (req, res) => {
   }
 });
 
-
 //แก้ไขโปรไฟล์หมอ
 app.post("/updateprofile/:id", async (req, res) => {
-  const { nametitle,name,tel } = req.body;
+  const { nametitle, name, tel } = req.body;
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await MPersonnel.findByIdAndUpdate(id, {nametitle,name,tel});
+    await MPersonnel.findByIdAndUpdate(id, { nametitle, name, tel });
 
     res
       .status(200)
@@ -1065,7 +1059,8 @@ app.post("/reset-passworddt/:id/:token", async (req, res) => {
     return res.json({ error: "Passwords do not match" });
   }
   const oldUser = await MPersonnel.findOne({ _id: id });
-  if (!oldUser) {s
+  if (!oldUser) {
+    s;
     return res.json({ status: "User Not Exists!!" });
   }
   const secret = JWT_SECRET + oldUser.password;
@@ -1100,12 +1095,12 @@ app.get("/searchcaremanual", async (req, res) => {
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
-    
+
     const result = await Caremanual.find({
       $or: [
         { caremanual_name: { $regex: regex } }, // ค้นหาชื่อคู่มือที่ตรงกับ keyword
-        { detail: { $regex: regex } } // ค้นหาคำอธิบายที่ตรงกับ keyword
-      ]
+        { detail: { $regex: regex } }, // ค้นหาคำอธิบายที่ตรงกับ keyword
+      ],
     });
 
     res.json({ status: "ok", data: result });
@@ -1121,12 +1116,9 @@ app.get("/searchmpersonnel", async (req, res) => {
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
-    
+
     const result = await MPersonnel.find({
-      $or: [
-        { name: { $regex: regex } },
-        { nametitle: { $regex: regex } } 
-      ]
+      $or: [{ name: { $regex: regex } }, { nametitle: { $regex: regex } }],
     });
 
     res.json({ status: "ok", data: result });
@@ -1135,7 +1127,6 @@ app.get("/searchmpersonnel", async (req, res) => {
   }
 });
 
-
 //ค้นหาอุปกรณ์
 app.get("/searchequipment", async (req, res) => {
   try {
@@ -1143,12 +1134,12 @@ app.get("/searchequipment", async (req, res) => {
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
-    
+
     const result = await Equipment.find({
       $or: [
         { equipment_name: { $regex: regex } },
-        { equipment_type: { $regex: regex } } 
-      ]
+        { equipment_type: { $regex: regex } },
+      ],
     });
     res.json({ status: "ok", data: result });
   } catch (error) {
@@ -1162,13 +1153,10 @@ app.get("/searchadmin", async (req, res) => {
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
-    
-    const result = await Admins.find({
-      $or: [
-        { username: { $regex: regex } },
-      ]
-    });
 
+    const result = await Admins.find({
+      $or: [{ username: { $regex: regex } }],
+    });
 
     res.json({ status: "ok", data: result });
   } catch (error) {
@@ -1176,13 +1164,26 @@ app.get("/searchadmin", async (req, res) => {
   }
 });
 
-
 //ผู้ป่วย
 //*******************//
 app.post("/adduser", async (req, res) => {
-  const { username, name, email, password, confirmPassword,tel,gender,birthday,ID_card_number, nationality,Address } = req.body;
+  const {
+    username,
+    name,
+    email,
+    password,
+    confirmPassword,
+    tel,
+    gender,
+    birthday,
+    ID_card_number,
+    nationality,
+    Address,
+  } = req.body;
   if (!username || !password || !email || !name) {
-    return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน อีเมล และชื่อ-นามสกุล" });
+    return res.json({
+      error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน อีเมล และชื่อ-นามสกุล",
+    });
   }
   const encryptedPassword = await bcrypt.hash(password, 10);
   try {
@@ -1203,7 +1204,7 @@ app.post("/adduser", async (req, res) => {
       tel,
       gender,
       birthday,
-      ID_card_number, 
+      ID_card_number,
       nationality,
       Address,
     });
@@ -1212,6 +1213,74 @@ app.post("/adduser", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
+// --------------------------- ส่วนใหม่
+const auth = new google.auth.GoogleAuth({
+  keyFile: "homeward-422311-4bb083e6bd1e.json", // Path to the JSON file downloaded from Google Developer Console
+  scopes: "https://www.googleapis.com/auth/spreadsheets.readonly",
+});
+
+// Function to fetch data from Google Sheets
+async function getDataFromGoogleSheet() {
+  const sheets = google.sheets({ version: "v4", auth });
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: "1k_V4qRCTbeRtra4ccKFMA5xAo1m9mamBXxYLN0uy8bc",
+    range: "Sheet1", // Range of data to fetch
+  });
+  return response.data.values;
+}
+
+
+
+
+
+// Function to save data to MongoDB
+async function saveDataToMongoDB() {
+  try {
+    const data = await getDataFromGoogleSheet();
+    const latestSavedData = await User.find().sort({ createdAt: -1 }).limit(1);
+    const lastSavedUsername =
+      latestSavedData.length > 0 ? latestSavedData[0].username : "";
+
+    // Exclude the first row if it's a header
+    const newData = data.slice(1).filter((row) => row[1] !== lastSavedUsername);
+
+    for (const row of newData) {
+      const existingUser = await User.findOne({ $or: [{ username: row[1] }, { email: row[4] }] });
+      if (existingUser) {
+        console.log(`User with username ${row[1]} or email ${row[4]} already exists. Skipping...`);
+        continue;
+      }
+   
+      const encryptedPassword = await bcrypt.hash(row[5], 10);
+      const newUser = new User({
+        username: row[1],
+        password: encryptedPassword,
+        email: row[4],
+        tel: row[5],
+        name: row[2],
+        surname: row[3],
+        gender: row[6],
+        birthday: row[7],
+        ID_card_number: row[1],
+        nationality: row[8],
+        Address: row[9],
+      });
+      await newUser.save();
+      console.log(`User with username ${row[1]} saved to MongoDB.`);
+    }
+    console.log(
+      "Data fetched from Google Sheets and saved to MongoDB successfully"
+    );
+  } catch (error) {
+    console.error("Error fetching data from Google Sheets:", error);
+  }
+}
+// Polling every 5 minutes to check for new data
+setInterval(saveDataToMongoDB, 0.2* 60 * 1000);
+// saveDataToMongoDB();
+//---------------------------------------
+
 
 //loginuser
 app.post("/loginuser", async (req, res) => {
@@ -1235,11 +1304,6 @@ app.post("/loginuser", async (req, res) => {
   res.json({ status: "error", error: "InvAlid Password" });
 });
 
-
-
-
-
-
 //ค้นหาผู้ป่วย
 app.get("/searchuser", async (req, res) => {
   try {
@@ -1247,14 +1311,10 @@ app.get("/searchuser", async (req, res) => {
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
-    
-    const result = await User.find({
-      $or: [
-        { username: { $regex: regex } },
-        { name: { $regex: regex } },
-      ]
-    });
 
+    const result = await User.find({
+      $or: [{ username: { $regex: regex } }, { name: { $regex: regex } }],
+    });
 
     res.json({ status: "ok", data: result });
   } catch (error) {
@@ -1262,14 +1322,34 @@ app.get("/searchuser", async (req, res) => {
   }
 });
 
-
 //ลบผู้ป่วย
+// app.delete("/deleteUser/:id", async (req, res) => {
+//   const UserId = req.params.id;
+//   try {
+//     const result = await User.deleteOne({ _id: UserId });
+
+//     if (result.deletedCount === 1) {
+//       res.json({ status: "OK", data: "ลบข้อมูลผู้ป่วยสำเร็จ" });
+//     } else {
+//       res.json({
+//         status: "Not Found",
+//         data: "ไม่พบข้อมูลผู้ป่วยนี้หรือข้อมูลถูกลบไปแล้ว",
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error during deletion:", error);
+//     res.status(500).json({ status: "Error", data: "Internal Server Error" });
+//   }
+// });
 app.delete("/deleteUser/:id", async (req, res) => {
   const UserId = req.params.id;
   try {
-    const result = await User.deleteOne({ _id: UserId});
+    const result = await User.findOneAndUpdate(
+      { _id: UserId },
+      { $set: { deletedAt: new Date() } }
+    );
 
-    if (result.deletedCount === 1) {
+    if (result) {
       res.json({ status: "OK", data: "ลบข้อมูลผู้ป่วยสำเร็จ" });
     } else {
       res.json({
@@ -1282,6 +1362,7 @@ app.delete("/deleteUser/:id", async (req, res) => {
     res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
+
 
 //ดึงคู่ข้อมูลผู้ป่วย
 app.get("/getuser/:id", async (req, res) => {
@@ -1301,28 +1382,40 @@ app.get("/getuser/:id", async (req, res) => {
   }
 });
 
-
-
 //แก้ไขผู้ป่วย
 app.post("/updateuser/:id", async (req, res) => {
   // const { username, name, email,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
-  const { username, name, email, password,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
+  const {
+    username,
+    name,
+    email,
+    password,
+    tel,
+    gender,
+    birthday,
+    ID_card_number,
+    nationality,
+    Address,
+  } = req.body;
   const { id } = req.params;
 
   try {
-    const updatedUser = await User.findByIdAndUpdate
-    (id, {
-      username,
-      name,
-      email,
-      password,
-      tel,
-      gender,
-      birthday,
-      ID_card_number, 
-      nationality,
-      Address,
-    }, { new: true });
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        username,
+        name,
+        email,
+        password,
+        tel,
+        gender,
+        birthday,
+        ID_card_number,
+        nationality,
+        Address,
+      },
+      { new: true }
+    );
 
     // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
     if (!updatedUser) {
@@ -1358,7 +1451,7 @@ app.post("/updatenameadmin/:id", async (req, res) => {
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await Admins.findByIdAndUpdate(id, {name});
+    await Admins.findByIdAndUpdate(id, { name });
 
     res
       .status(200)
@@ -1369,13 +1462,12 @@ app.post("/updatenameadmin/:id", async (req, res) => {
   }
 });
 
-
 //เปลี่ยนอีเมล ส่ง otp ยังไม่มีตัวเก็บ otp เพื่อเช็คว่าตรงกับที่ส่งไหม
 
 // app.post("/sendotp", async (req, res) => {
 //   const { email } = req.body;
 //   const otp = randomstring.generate(6); // สร้างรหัส OTP แบบสุ่ม
-  
+
 //   try {
 //     // ส่งอีเมล OTP ไปยังอีเมลของผู้ใช้
 //     let transporter = nodemailer.createTransport({
@@ -1408,7 +1500,6 @@ app.post("/updatenameadmin/:id", async (req, res) => {
 //   }
 // });
 
-
 // app.post("/updateemail", async (req, res) => {
 //   const { email, otp } = req.body;
 //   if (!email || !otp) {
@@ -1430,7 +1521,6 @@ app.post("/updatenameadmin/:id", async (req, res) => {
 // });
 //----------------------------------------------
 
-
 app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
   const {
     HN,
@@ -1445,7 +1535,6 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
     selectedPersonnel,
   } = req.body;
   const { id } = req.params;
-  
 
   try {
     let filePresent = "";
@@ -1477,7 +1566,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
     } else {
       existingFilename = oldMedicalInfo.fileP;
     }
-    
+
     let existingFilename1 = "";
     // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
     if (fileManage !== "") {
@@ -1494,37 +1583,36 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
       existingFilename2 = oldMedicalInfo.filePhy;
     }
 
-    const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
-      id,
-      {
-      HN,
-      AN,
-      Date_Admit,
-      Date_DC,
-      Diagnosis,
-      Chief_complaint,
-      Present_illness,
-      Phychosocial_assessment,
-      Management_plan,
-      fileP: existingFilename,
-      fileM: existingFilename1,
-      filePhy: existingFilename2,
-      selectedPersonnel: selectedPersonnel,
-    },
-    { new: true }
-);
+    const updatedMedicalInformation =
+      await MedicalInformation.findByIdAndUpdate(
+        id,
+        {
+          HN,
+          AN,
+          Date_Admit,
+          Date_DC,
+          Diagnosis,
+          Chief_complaint,
+          Present_illness,
+          Phychosocial_assessment,
+          Management_plan,
+          fileP: existingFilename,
+          fileM: existingFilename1,
+          filePhy: existingFilename2,
+          selectedPersonnel: selectedPersonnel,
+        },
+        { new: true }
+      );
 
     if (!updatedMedicalInformation) {
       return res.status(404).json({ status: "Medical information not found" });
     }
 
     res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
-    
   } catch (error) {
     res.json({ status: error });
   }
 });
-
 
 //ดึงแพทย์มา
 app.get("/getmpersonnel/:id", async (req, res) => {
@@ -1545,33 +1633,47 @@ app.get("/getmpersonnel/:id", async (req, res) => {
 
 //แก้ไขอุปกรณ์
 app.post("/updatemp/:id", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name  } = req.body;
+  const { username, password, email, confirmPassword, tel, nametitle, name } =
+    req.body;
   const { id } = req.params;
 
   try {
-    const UpdatedMP = await MPersonnel.findByIdAndUpdate
-    (id, {
-      username, password, email, confirmPassword, tel, nametitle, name
-    }, { new: true });
+    const UpdatedMP = await MPersonnel.findByIdAndUpdate(
+      id,
+      {
+        username,
+        password,
+        email,
+        confirmPassword,
+        tel,
+        nametitle,
+        name,
+      },
+      { new: true }
+    );
 
     // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
     if (!UpdatedMP) {
       return res.status(404).json({ status: "Equip not found" });
     }
 
-    res.json({ status: "ok", UpdatedMP});
+    res.json({ status: "ok", UpdatedMP });
   } catch (error) {
     res.json({ status: error });
   }
 });
-
 
 app.get("/equipmentuser/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const equipmentusers = await EquipmentUser.findOne({ user: id });
     if (!equipmentusers) {
-      return res.status(404).send({ status: "error", message: "Medical information not found for this user" });
+      return res
+        .status(404)
+        .send({
+          status: "error",
+          message: "Medical information not found for this user",
+        });
     }
     res.send({ status: "ok", data: equipmentusers });
   } catch (error) {
@@ -1579,7 +1681,6 @@ app.get("/equipmentuser/:id", async (req, res) => {
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
-
 
 //ดึงคู่ข้อมูลอุปกรณ์
 app.get("/getequip/:id", async (req, res) => {
@@ -1599,25 +1700,27 @@ app.get("/getequip/:id", async (req, res) => {
   }
 });
 
-
 //แก้ไขอุปกรณ์
 app.post("/updateequip/:id", async (req, res) => {
-  const { equipment_name,equipment_type  } = req.body;
+  const { equipment_name, equipment_type } = req.body;
   const { id } = req.params;
 
   try {
-    const UpdatedEquipment = await Equipment.findByIdAndUpdate
-    (id, {
-      equipment_name,
-      equipment_type,
-    }, { new: true });
+    const UpdatedEquipment = await Equipment.findByIdAndUpdate(
+      id,
+      {
+        equipment_name,
+        equipment_type,
+      },
+      { new: true }
+    );
 
     // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
     if (!UpdatedEquipment) {
       return res.status(404).json({ status: "Equip not found" });
     }
 
-    res.json({ status: "ok", UpdatedEquipment});
+    res.json({ status: "ok", UpdatedEquipment });
   } catch (error) {
     res.json({ status: error });
   }

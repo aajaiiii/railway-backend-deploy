@@ -94,14 +94,16 @@ const UserScehma = new mongoose.Schema(
         email: { type: String, unique: true },
         tel: String,
         name: String,
+        surname:String,
         gender: String,
-        birthday: Date,
+        birthday: String,
         ID_card_number: String,
         nationality: String,
         Address: String,
+        deletedAt: { type: Date, default: null } // เพิ่มฟิลด์ deletedAt
+
 
         // caregiver:[{type: mongoose.Schema.Types.ObjectId,ref:'Caregiver'}]
-
     },
     {
         collection: "User",
