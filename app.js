@@ -1216,11 +1216,14 @@ app.post("/adduser", async (req, res) => {
   }
 });
 
-// --------------------------- ส่วนใหม่
-const auth = new google.auth.GoogleAuth({
-  keyFile: "homeward-422311-4bb083e6bd1e.json",
-  scopes: "https://www.googleapis.com/auth/spreadsheets.readonly",
+const { GoogleAuth } = require('google-auth-library');
+
+// กำหนดคีย์และขอบเขต (scopes) ของ Google Sheets API โดยใช้ Environment Variable
+const auth = new GoogleAuth({
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS, // ใช้ Environment Variable
+  scopes: 'https://www.googleapis.com/auth/spreadsheets.readonly',
 });
+
 
 
 
