@@ -13,6 +13,8 @@ const slugify = require("slugify");
 const cors = require("cors");
 app.use(cors());
 const { google } = require("googleapis");
+const axios = require('axios');
+
 
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
@@ -1302,6 +1304,20 @@ app.post("/loginuser", async (req, res) => {
     }
   }
   res.json({ status: "error", error: "InvAlid Password" });
+});
+
+app.post("/userdata", async (req, res) => {
+  const { token } = req.body;
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    const username = user.username;
+
+    User.findOne({ username: username }).then((data) => {
+      return res.send({ status: "Ok", data: data });
+    });
+  } catch (error) {
+    return res.send({ error: error });
+  }
 });
 
 //ค้นหาผู้ป่วย
