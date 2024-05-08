@@ -1218,7 +1218,7 @@ app.post("/adduser", async (req, res) => {
 
 // --------------------------- ส่วนใหม่
 const auth = new google.auth.GoogleAuth({
-  keyFile: "",
+  keyFile: "homeward-422311-4bb083e6bd1e.json",
   scopes: "https://www.googleapis.com/auth/spreadsheets.readonly",
 });
 
