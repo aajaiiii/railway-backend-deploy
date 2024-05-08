@@ -1218,9 +1218,12 @@ app.post("/adduser", async (req, res) => {
 
 // --------------------------- ส่วนใหม่
 const auth = new google.auth.GoogleAuth({
-  keyFile: "homeward-422311-4bb083e6bd1e.json", // Path to the JSON file downloaded from Google Developer Console
+  keyFile: "",
   scopes: "https://www.googleapis.com/auth/spreadsheets.readonly",
 });
+
+
+
 
 // Function to fetch data from Google Sheets
 async function getDataFromGoogleSheet() {
