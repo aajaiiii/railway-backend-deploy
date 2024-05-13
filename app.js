@@ -46,6 +46,7 @@ const Caremanual = mongoose.model("Caremanual");
 const User = mongoose.model("User");
 const MedicalInformation = mongoose.model("MedicalInformation");
 const EquipmentUser = mongoose.model("EquipmentUser");
+const Caregiver = mongoose.model("Caregiver");
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
@@ -1225,9 +1226,6 @@ const auth = new GoogleAuth({
 });
 
 
-
-
-
 // Function to fetch data from Google Sheets
 async function getDataFromGoogleSheet() {
   const sheets = google.sheets({ version: "v4", auth });
@@ -1276,6 +1274,18 @@ async function saveDataToMongoDB() {
       });
       await newUser.save();
       console.log(`User with username ${row[1]} saved to MongoDB.`);
+
+      // Save caregiver data
+      const caregiverData = {
+        user: newUser._id,
+        name: row[11],
+        surname: row[14],
+        Relationship: row[12],
+        tel: row[13],
+      };
+      const newCaregiver = new Caregiver(caregiverData);
+      await newCaregiver.save();
+      console.log(`Caregiver ${row[11]} saved to MongoDB.`);
     }
     console.log(
       "Data fetched from Google Sheets and saved to MongoDB successfully"
@@ -1284,33 +1294,76 @@ async function saveDataToMongoDB() {
     console.error("Error fetching data from Google Sheets:", error);
   }
 }
-// Polling every 5 minutes to check for new data
-setInterval(saveDataToMongoDB, 0.2* 60 * 1000);
-// saveDataToMongoDB();
+
 //---------------------------------------
 
+// async function getLatestUserId() {
+//   try {
+//     const latestSavedData = await User.find().sort({ createdAt: -1 }).limit(1);
+//     return latestSavedData.length > 0 ? latestSavedData[0]._id : null;
+//   } catch (error) {
+//     console.error("Error fetching latest user ID:", error);
+//     return null;
+//   }
+// }
+
+// async function saveDataCaregiver() {
+//   try {
+//     const data = await getDataFromGoogleSheet();
+//     const lastSavedUserId = await getLatestUserId();
+
+//     const newData = data.slice(1);
+
+//     for (const row of newData) {
+//       const existingCaregiver = await Caregiver.findOne({ user: lastSavedUserId });
+//       if (existingCaregiver) {
+//         console.log(`Caregiver with user ID ${lastSavedUserId} already exists. Skipping...`);
+//         continue;
+//       }    
+//       const newCaregiver = new Caregiver({
+//         user: lastSavedUserId,        
+//         name: row[11],
+//         surname: row[14],
+//         Relationship: row[12],
+//         tel: row[13],
+//       });
+//       await newCaregiver.save();
+//       console.log(`Caregiver ${row[11]} saved to MongoDB.`);
+//     }
+//     console.log(
+//       "Data fetched from Google Sheets and saved to MongoDB successfully"
+//     );
+//   } catch (error) {
+//     console.error("Error fetching data from Google Sheets:", error);
+//   }
+// }
+
+setInterval(saveDataToMongoDB,  0.1* 60 * 1000);
+// setInterval(saveDataCaregiver, 0.1 * 60 * 1000);
+
+// setInterval(saveDataCaregiver , 5* 60 * 1000);
 
 //loginuser
-app.post("/loginuser", async (req, res) => {
-  const { username, password } = req.body;
+// app.post("/loginuser", async (req, res) => {
+//   const { username, password } = req.body;
 
-  const user = await User.findOne({ username });
-  if (!user) {
-    return res.json({ error: "User Not found" });
-  }
-  if (await bcrypt.compare(password, user.password)) {
-    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "15m",
-    });
+//   const user = await User.findOne({ username });
+//   if (!user) {
+//     return res.json({ error: "User Not found" });
+//   }
+//   if (await bcrypt.compare(password, user.password)) {
+//     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
+//       expiresIn: "15m",
+//     });
 
-    if (res.status(201)) {
-      return res.json({ status: "ok", data: token });
-    } else {
-      return res.json({ error: "error" });
-    }
-  }
-  res.json({ status: "error", error: "InvAlid Password" });
-});
+//     if (res.status(201)) {
+//       return res.json({ status: "ok", data: token });
+//     } else {
+//       return res.json({ error: "error" });
+//     }
+//   }
+//   res.json({ status: "error", error: "InvAlid Password" });
+// });
 
 app.post("/userdata", async (req, res) => {
   const { token } = req.body;
@@ -1325,7 +1378,178 @@ app.post("/userdata", async (req, res) => {
     return res.send({ error: error });
   }
 });
+app.post("/loginuser", async (req, res) => {
+  const { username, password } = req.body;
 
+  try {
+    const user = await User.findOne({ username });
+
+    // Check if user exists
+    if (!user) {
+      return res.json({ error: "User Not found" });
+    }
+
+    // Check if user is deleted
+    if (user.deletedAt) {
+      return res.json({ error: "User has been deleted" });
+    }
+
+    // Compare passwords
+    if (await bcrypt.compare(password, user.password)) {
+      const token = jwt.sign({ username: user.username }, JWT_SECRET, {
+        expiresIn: "15m",
+      });
+
+      return res.json({ status: "ok", data: token });
+    } else {
+      return res.json({ status: "error", error: "Invalid Password" });
+    }
+  } catch (error) {
+    return res.json({ error: error.message });
+  }
+});
+
+app.post("/updateuser", async (req, res) => {
+  const {
+    username,
+    name,
+    surname,
+    tel,
+    gender,
+    birthday,
+    ID_card_number,
+    nationality,
+    Address,
+  } = req.body;
+  
+  try {
+    await User.updateOne(
+      { username: username }, // ใช้ username เพื่อระบุผู้ใช้ที่ต้องการอัปเดต
+      {
+        $set: {
+          name,
+          surname,
+          tel,
+          gender,
+          birthday,
+          ID_card_number,
+          nationality,
+          Address,
+        },
+      },
+    );
+    res.send({ status: "Ok", data: "Updated" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).send({ error: "Error updating user" });
+  }
+});
+//ดึงข้อมูลผู้ดูแล
+app.get("/getcaregiver/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (!id) {
+      return res.status(400).send({
+        status: "error",
+        message: "id is required",
+      });
+    }
+    const Caregiverinfo = await Caregiver.findOne({ user : id});
+    if (!Caregiverinfo ) {
+      return res
+        .status(404)
+        .send({
+          status: "error",
+          message: "not found for this user",
+        });
+    }
+    res.send({ status: "ok", data: Caregiverinfo });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ status: "error", message: "Internal Server Error" });
+  }
+});
+//แก้ไขผู้ดูแล
+
+app.post("/updatecaregiver", async (req, res) => {
+  const {
+    user,
+    name,
+    surname,
+    tel,
+    Relationship,
+  } = req.body;
+  
+  try {
+    if (!user) {
+      return res.status(400).send({ error: "User is required" });
+    }
+    await Caregiver.updateOne(
+      { user: user },
+      {
+        $set: {
+          name,
+          surname,
+          tel,
+          Relationship,
+        },
+      },
+    );
+    res.send({ status: "Ok", data: "Updated" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).send({ error: "Error updating user" });
+  }
+});
+
+//แก้ไขรหัสผ่าน
+app.post("/updatepassuser", async (req, res) => {
+  const {
+      username,
+      password,
+      newPassword,
+      confirmNewPassword
+  } = req.body;
+
+  try {
+      if (!username || !password || !newPassword || !confirmNewPassword) {
+          return res.status(400).send({ error: "Missing required fields" });
+      }
+
+      if (newPassword.trim() !== confirmNewPassword.trim()) {
+          return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
+      }
+
+      // ตรวจสอบรหัสผ่านเก่า
+      const user = await User.findOne({ username: username });
+      if (!user) {
+          return res.status(404).json({ error: "User not found" });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+          return res.status(401).json({ error: "รหัสผ่านเก่าไม่ถูกต้อง" });
+      }
+
+      const encryptedNewPassword = await bcrypt.hash(newPassword, 10);
+
+      await User.updateOne(
+          { username: username },
+          {
+              $set: {
+                  password: encryptedNewPassword,
+              },
+          },
+      );
+      res.send({ status: "Ok", data: "Updated" });
+  } catch (error) {
+      console.error("Error updating user:", error);
+      return res.status(500).send({ error: "Error updating user" });
+  }
+});
+
+
+// --------------------------
 //ค้นหาผู้ป่วย
 app.get("/searchuser", async (req, res) => {
   try {

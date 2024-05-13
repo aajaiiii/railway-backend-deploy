@@ -40,6 +40,7 @@ const equipmentuserScehma = new mongoose.Schema(
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
+            
         }
     },
     {
@@ -96,7 +97,7 @@ const UserScehma = new mongoose.Schema(
         name: String,
         surname:String,
         gender: String,
-        birthday: String,
+        birthday: Date,
         ID_card_number: String,
         nationality: String,
         Address: String,
@@ -117,8 +118,10 @@ mongoose.model("User", UserScehma);
 const CaregiverScehma = new mongoose.Schema(
     {
         name: String,
+        surname: String,
         Relationship: String,
         tel: String,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     },
     {
         collection: "Caregiver",
