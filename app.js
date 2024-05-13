@@ -1237,9 +1237,6 @@ async function getDataFromGoogleSheet() {
 }
 
 
-
-
-
 // Function to save data to MongoDB
 async function saveDataToMongoDB() {
   try {
