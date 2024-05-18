@@ -1289,7 +1289,7 @@ async function saveDataToMongoDB() {
 //   }
 // }
 
-setInterval(saveDataToMongoDB,  0.1* 60 * 1000);
+// setInterval(saveDataToMongoDB,  0.1* 60 * 1000);
 
 //loginuser
 // app.post("/loginuser", async (req, res) => {
@@ -1499,10 +1499,10 @@ app.post("/updatepassuser", async (req, res) => {
 
 
 app.post("/addpatientform", async (req, res) => {
-  const { Symptom, BloodPressure, PulseRate, Temperature,DTX,Resptration,LevelSymptom,Painscore,request_detail,Recorder,user} = req.body;
+  const { Symptom1,Symptom2,Symptom3,Symptom4,Symptom5, BloodPressure, PulseRate, Temperature,DTX,Resptration,LevelSymptom,Painscore,request_detail,Recorder,user} = req.body;
   try {
     await PatientForm.create({
-      Symptom, 
+      Symptom1,Symptom2,Symptom3,Symptom4,Symptom5,
       BloodPressure, 
       PulseRate, 
       Temperature,

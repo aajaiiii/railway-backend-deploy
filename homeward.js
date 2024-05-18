@@ -176,7 +176,11 @@ mongoose.model("MedicalInformation", MedicalInformationSchema);
 //ฟแร์มบันทึกอาการ
 const PatientFormScehma = new mongoose.Schema(
     {
-        Symptom: String,
+        Symptom1: String,
+        Symptom2: String,
+        Symptom3: String,
+        Symptom4: String,
+        Symptom5: String,
         BloodPressure: Number,
         PulseRate: Number,
         Temperature: Number,
