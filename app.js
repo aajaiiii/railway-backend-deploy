@@ -47,6 +47,8 @@ const User = mongoose.model("User");
 const MedicalInformation = mongoose.model("MedicalInformation");
 const EquipmentUser = mongoose.model("EquipmentUser");
 const Caregiver = mongoose.model("Caregiver");
+const Symptom = mongoose.model("Symptom");
+const PatientForm = mongoose.model("PatientForm");
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
@@ -230,7 +232,7 @@ app.post("/profile", async (req, res) => {
         if (error.name === "TokenExpiredError") {
           return "token expired";
         } else {
-          throw error; // ถ้าเกิดข้อผิดพลาดอื่นๆในการยืนยัน token ให้โยน error ไปต่อให้ catch จัดการ
+          throw error; 
         }
       }
       return decoded;
@@ -596,19 +598,6 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
   }
 });
 
-// app.get("/medicalInformation/:id", async (req, res) => {
-//   const { id } = req.params;
-//   try {
-//     const medicalInfo = await MedicalInformation.findOne({ id: id });
-//     if (!medicalInfo) {
-//       return res.status(404).send({ status: "error", message: "Medical information not found for this user" });
-//     }
-//     res.send({ status: "ok", data: medicalInfo });
-//   } catch (error) {
-//     console.log(error);
-//     res.status(500).send({ status: "error", message: "Internal Server Error" });
-//   }
-// });
 
 app.get("/medicalInformation/:id", async (req, res) => {
   const { id } = req.params;
@@ -761,41 +750,6 @@ app.delete("/deleteCaremanual/:id", async (req, res) => {
     res.status(500).json({ status: "Error", data: "Internal Server Error" });
   }
 });
-
-//แก้ไขคู่มือ
-// app.post("/updatecaremanual/:id", upload, async (req, res) => {
-//   const { caremanual_name, detail } = req.body;
-//   const { id } = req.params;
-
-//   try {
-//     let imagename = "";
-//     let filename = "";
-
-//     if (req.files['image'] && req.files['image'][0]) {
-//       imagename = req.files['image'][0].filename;
-//     }
-
-//     if (req.files['file'] && req.files['file'][0]) {
-//       filename = req.files['file'][0].filename;
-//     }
-
-//     const updatedCaremanual = await Caremanual.findByIdAndUpdate(id, {
-//       caremanual_name,
-//       image: imagename,
-//       file: filename,
-//       detail,
-//     }, { new: true });
-
-//     // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
-//     if (!updatedCaremanual) {
-//       return res.status(404).json({ status: "Caremanual not found" });
-//     }
-
-//     res.json({ status: "ok", updatedCaremanual });
-//   } catch (error) {
-//     res.json({ status: error });
-//   }
-// });
 
 app.post("/updatecaremanual/:id", upload, async (req, res) => {
   const { caremanual_name, detail } = req.body;
@@ -1336,9 +1290,6 @@ async function saveDataToMongoDB() {
 // }
 
 setInterval(saveDataToMongoDB,  0.1* 60 * 1000);
-// setInterval(saveDataCaregiver, 0.1 * 60 * 1000);
-
-// setInterval(saveDataCaregiver , 5* 60 * 1000);
 
 //loginuser
 // app.post("/loginuser", async (req, res) => {
@@ -1375,6 +1326,7 @@ app.post("/userdata", async (req, res) => {
     return res.send({ error: error });
   }
 });
+
 app.post("/loginuser", async (req, res) => {
   const { username, password } = req.body;
 
@@ -1542,6 +1494,31 @@ app.post("/updatepassuser", async (req, res) => {
   } catch (error) {
       console.error("Error updating user:", error);
       return res.status(500).send({ error: "Error updating user" });
+  }
+});
+
+
+app.post("/addpatientform", async (req, res) => {
+  const { Symptom, BloodPressure, PulseRate, Temperature,DTX,Resptration,LevelSymptom,Painscore,request_detail,Recorder,user} = req.body;
+  try {
+    await PatientForm.create({
+      Symptom, 
+      BloodPressure, 
+      PulseRate, 
+      Temperature,
+      DTX,
+      Resptration,
+      LevelSymptom,
+      Painscore,
+      request_detail,
+      Recorder,
+      user,
+    });
+
+    res.send({ status: "ok" });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
   }
 });
 
@@ -1968,3 +1945,119 @@ app.post("/updateequip/:id", async (req, res) => {
     res.json({ status: error });
   }
 });
+
+// --------------------------------------------------
+//เพิ่มอาการ
+app.post("/addsymptom", async (req, res) => {
+  const { name } = req.body;
+  try {
+    const oldesymptom = await Symptom.findOne({ name });
+
+    if (oldesymptom) {
+      return res.json({ error: "Symptom Exists" });
+    }
+
+
+    await Symptom.create({
+      name,
+    });
+
+    res.send({ status: "ok" });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+
+app.get("/searchsymptom", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+    const regex = new RegExp(escapeRegex(keyword), "i");
+
+    const result = await Symptom.find({
+      $or: [{ name: { $regex: regex } }],
+    });
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+
+app.get("/allSymptom", async (req, res) => {
+  try {
+    const allSymptom = await Symptom.find({});
+    res.send({ status: "ok", data: allSymptom });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+//ลบอาการ
+app.delete("/deletesymptom/:id", async (req, res) => {
+  const SymptomId = req.params.id;
+  try {
+    const result = await Symptom.deleteOne({ _id: SymptomId });
+
+    if (result.deletedCount === 1) {
+      res.json({ status: "OK", data: "ลบข้อมูลอาการผู้ป่วยสำเร็จ" });
+    } else {
+      res.json({
+        status: "Not Found",
+        data: "ไม่พบข้อมูลอาการนี้หรือข้อมูลถูกลบไปแล้ว",
+      });
+    }
+  } catch (error) {
+    console.error("Error during deletion:", error);
+    res.status(500).json({ status: "Error", data: "Internal Server Error" });
+  }
+});
+
+//แก้ไขอาการ
+app.post("/updatesymptom/:id", async (req, res) => {
+  const { name} = req.body;
+  const { id } = req.params;
+
+  try {
+    const UpdatedSymptom = await Symptom.findByIdAndUpdate(
+      id,
+      {
+        name,      
+      },
+      { new: true }
+    );
+
+    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
+    if (!UpdatedSymptom) {
+      return res.status(404).json({ status: "Symptom not found" });
+    }
+
+    res.json({ status: "ok", UpdatedSymptom});
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+app.get("/getsymptom/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const symptom= await Symptom.findById(id);
+
+    if (!symptom) {
+      return res.status(404).json({ error: "symptom not found" });
+    }
+
+    res.json(symptom);
+  } catch (error) {
+    console.error("Error fetching symptom:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+// ------------------------------------------------

@@ -131,6 +131,20 @@ const CaregiverScehma = new mongoose.Schema(
 
 mongoose.model("Caregiver", CaregiverScehma);
 
+//อาการ
+const SymptomScehma = new mongoose.Schema(
+    {
+        name: String,
+    },
+    {
+        collection: "Symptom",
+        timestamps: true,
+    }
+);
+
+mongoose.model("Symptom", SymptomScehma);
+
+
 //ข้อมูลการเจ็บป่วย
 const MedicalInformationSchema = new mongoose.Schema(
     {
@@ -157,3 +171,29 @@ const MedicalInformationSchema = new mongoose.Schema(
     }
 );
 mongoose.model("MedicalInformation", MedicalInformationSchema);
+
+
+//ฟแร์มบันทึกอาการ
+const PatientFormScehma = new mongoose.Schema(
+    {
+        Symptom: String,
+        BloodPressure: Number,
+        PulseRate: Number,
+        Temperature: Number,
+        DTX: Number,
+        Resptration: String,
+        LevelSymptom: String,
+        Painscore: Number,
+        request_detail: String,
+        Recorder: String,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        // assesssment: { type: mongoose.Schema.Types.ObjectId, ref: "Assesssment" },
+
+    },
+    {
+        collection: "PatientForm",
+        timestamps: true,
+    }
+);
+
+mongoose.model("PatientForm", PatientFormScehma);
