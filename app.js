@@ -14,7 +14,7 @@ const cors = require("cors");
 app.use(cors());
 const { google } = require("googleapis");
 const axios = require('axios');
-
+const crypto = require('crypto');
 
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
@@ -49,6 +49,7 @@ const EquipmentUser = mongoose.model("EquipmentUser");
 const Caregiver = mongoose.model("Caregiver");
 const Symptom = mongoose.model("Symptom");
 const PatientForm = mongoose.model("PatientForm");
+const Assessment = mongoose.model("Assessment");
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
@@ -386,10 +387,10 @@ app.get("/alladmin", async (req, res) => {
 
 //เพิ่มข้อมูลแพทย์
 app.post("/addmpersonnel", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name } =
+  const { username, password, email, confirmPassword, tel, nametitle, name,surname } =
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
-  if (!username || !password || !email || !name || !nametitle) {
+  if (!username || !password || !email || !name || !surname ||!nametitle ) {
     return res.json({
       error:
         "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล",
@@ -412,6 +413,7 @@ app.post("/addmpersonnel", async (req, res) => {
       tel,
       nametitle,
       name,
+      surname,
     });
     res.send({ status: "ok" });
   } catch (error) {
@@ -617,6 +619,8 @@ app.get("/medicalInformation/:id", async (req, res) => {
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
+
+
 
 // app.get("/getmedicalInformation/:id", async (req, res) => {
 //   const { id } = req.params;
@@ -930,12 +934,12 @@ app.post("/updatepassword/:id", async (req, res) => {
 
 //แก้ไขโปรไฟล์หมอ
 app.post("/updateprofile/:id", async (req, res) => {
-  const { nametitle, name, tel } = req.body;
+  const { nametitle, name,surname, tel } = req.body;
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await MPersonnel.findByIdAndUpdate(id, { nametitle, name, tel });
+    await MPersonnel.findByIdAndUpdate(id, { nametitle, name, surname , tel });
 
     res
       .status(200)
@@ -1173,9 +1177,8 @@ app.post("/adduser", async (req, res) => {
 
 const { GoogleAuth } = require('google-auth-library');
 
-// กำหนดคีย์และขอบเขต (scopes) ของ Google Sheets API โดยใช้ Environment Variable
 const auth = new GoogleAuth({
-  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS, // ใช้ Environment Variable
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   scopes: 'https://www.googleapis.com/auth/spreadsheets.readonly',
 });
 
@@ -1313,6 +1316,19 @@ async function saveDataToMongoDB() {
 //   res.json({ status: "error", error: "InvAlid Password" });
 // });
 
+// app.post("/userdata", async (req, res) => {
+//   const { token } = req.body;
+//   try {
+//     const user = jwt.verify(token, JWT_SECRET);
+//     const username = user.username;
+
+//     User.findOne({ username: username }).then((data) => {
+//       return res.send({ status: "Ok", data: data });
+//     });
+//   } catch (error) {
+//     return res.send({ error: error });
+//   }
+// });
 app.post("/userdata", async (req, res) => {
   const { token } = req.body;
   try {
@@ -1320,12 +1336,19 @@ app.post("/userdata", async (req, res) => {
     const username = user.username;
 
     User.findOne({ username: username }).then((data) => {
+      if (!data) {
+        return res.status(404).json({ error: "ไม่พบข้อมูลผู้ใช้" });
+      }
       return res.send({ status: "Ok", data: data });
     });
   } catch (error) {
-    return res.send({ error: error });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Token หมดอายุ" });
+    }
+    return res.status(400).json({ error: "Token ไม่ถูกต้อง" });
   }
 });
+
 
 app.post("/loginuser", async (req, res) => {
   const { username, password } = req.body;
@@ -1333,17 +1356,14 @@ app.post("/loginuser", async (req, res) => {
   try {
     const user = await User.findOne({ username });
 
-    // Check if user exists
     if (!user) {
-      return res.json({ error: "User Not found" });
+      return res.status(404).json({ error: "ยังไม่มีบัญชีผู้ใช้นี้" });
     }
 
-    // Check if user is deleted
     if (user.deletedAt) {
-      return res.json({ error: "User has been deleted" });
+      return res.status(410).json({ error: "ยังไม่มีบัญชีผู้ใช้นี้" });
     }
 
-    // Compare passwords
     if (await bcrypt.compare(password, user.password)) {
       const token = jwt.sign({ username: user.username }, JWT_SECRET, {
         expiresIn: "15m",
@@ -1351,12 +1371,83 @@ app.post("/loginuser", async (req, res) => {
 
       return res.json({ status: "ok", data: token });
     } else {
-      return res.json({ status: "error", error: "Invalid Password" });
+      return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
     }
   } catch (error) {
-    return res.json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
+
+//ลืมรหัสผ่าน
+app.post('/forgot-passworduser', async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) {
+      return res.status(400).send('User not found');
+  }
+
+  const otp = crypto.randomBytes(3).toString('hex');
+  const otpExpiration = Date.now() + 3600000; // 1 hour expiration
+
+  user.otp = otp;
+  user.otpExpiration = otpExpiration;
+  await user.save();
+
+  const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+          user: 'oysasitorn@gmail.com',
+          pass: 'avyn xfwl pqio hmtr',
+      },
+  });
+
+  const mailOptions = {
+      from: "oysasitorn@gmail.com",
+      to: user.email,
+      subject: 'Home Ward: OTP for Password Reset',
+      text: `Your OTP is ${otp}`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+          return res.status(500).send('Error sending email');
+      }
+      res.send('OTP sent');
+  });
+});
+
+app.post('/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  const user = await User.findOne({ email, otp, otpExpiration: { $gt: Date.now() } });
+  if (!user) {
+      return res.status(400).send('Invalid OTP or OTP expired');
+  }
+
+  res.send('OTP verified');
+});
+
+app.post('/reset-password', async (req, res) => {
+  const { email, newPassword,confirmpassword } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) {
+      return res.status(400).send('ไม่พบบัญชีนี้');
+  }
+  if (newPassword !== confirmpassword) {
+    return res.send("รหัสผ่านไม่ตรงกัน" );
+  }
+  const encryptedPassword = await bcrypt.hash(newPassword, 10);
+
+  user.password = encryptedPassword;
+  user.otp = undefined;
+  user.otpExpiration = undefined;
+  await user.save();
+
+  res.send('เปลี่ยนรหัสสำเร็จ');
+});
+
 
 app.post("/updateuser", async (req, res) => {
   const {
@@ -1462,7 +1553,7 @@ app.post("/updatepassuser", async (req, res) => {
 
   try {
       if (!username || !password || !newPassword || !confirmNewPassword) {
-          return res.status(400).send({ error: "Missing required fields" });
+          return res.status(400).send({ error: "กรุณากรอกรหัส" });
       }
 
       if (newPassword.trim() !== confirmNewPassword.trim()) {
@@ -1522,6 +1613,294 @@ app.post("/addpatientform", async (req, res) => {
   }
 });
 
+//เอาบันทึกคนนี้้มาทั้งหมด
+app.get("/getpatientforms/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId }).populate('user');
+    res.send({ status: "ok", data: patientForms });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+//ฝั่งแพทย์
+// เอาอาการที่เลือกมาแสดง
+app.get("/getpatientformsone/:id", async (req, res) => {
+  const {id} = req.params;
+  
+  try {
+    const patientFormsone = await PatientForm.findById(id);
+    res.send({ status: "ok", data: patientFormsone });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+//กราฟDTX แบบมีเท่าไหร่มาหมด
+// app.get("/getDTXData/:userId", async (req, res) => {
+//   const userId = req.params.userId;
+  
+//   try {
+//     const patientForms = await PatientForm.find({ user: userId }).populate('user');
+
+//     const dtxData = patientForms.map(form => ({ 
+//       name: form.user.name, 
+//       DTX: form.DTX
+//     }));
+
+//     res.send({ status: "ok", data: dtxData });
+//   } catch (error) {
+//     console.error("Error fetching DTX data:", error);
+//     res.send({ status: "error" });
+//   }
+// });
+
+//แค่7
+app.get("/getDTXData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const dtxData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      DTX: form.DTX,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data: dtxData });
+  } catch (error) {
+    console.error("Error fetching DTX data:", error);
+    res.send({ status: "error" });
+  }
+});
+
+
+app.get("/getPainscoreData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const PainscoreData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      Painscore: form.Painscore,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data: PainscoreData });
+  } catch (error) {
+    console.error("Error fetching Painscore data:", error);
+    res.send({ status: "error" });
+  }
+});
+
+
+app.get("/getTemperatureData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const  TemperatureData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      Temperature: form.Temperature,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data:  TemperatureData });
+  } catch (error) {
+    console.error("Error fetching  Temperature data:", error);
+    res.send({ status: "error" });
+  }
+});
+
+app.get("/getBloodPressureData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const  BloodPressureData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      BloodPressure: form.BloodPressure,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data:  BloodPressureData });
+  } catch (error) {
+    console.error("Error fetching  BloodPressure data:", error);
+    res.send({ status: "error" });
+  }
+});
+
+app.get("/getPulseRateData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const  PulseRateData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      PulseRate: form.PulseRate,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data:  PulseRateData });
+  } catch (error) {
+    console.error("Error fetching  PulseRate data:", error);
+    res.send({ status: "error" });
+  }
+});
+
+
+app.get("/getResptrationData/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    const patientForms = await PatientForm.find({ user: userId })
+                                          .populate('user')
+                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+
+    const  ResptrationData = patientForms.map(form => ({ 
+      name: form.user.name, 
+      Resptration: form.Resptration,
+      createdAt: form.createdAt 
+    })).reverse(); 
+
+    res.send({ status: "ok", data:  ResptrationData });
+  } catch (error) {
+    console.error("Error fetching  Resptration data:", error);
+    res.send({ status: "error" });
+  }
+});
+//ประเมิน
+app.post("/addassessment", async (req, res) => {
+  const { suggestion, detail, status_name, PPS, MPersonnel, PatientForm } = req.body;
+  try {
+    await Assessment.create({
+      suggestion, detail, status_name, PPS, MPersonnel, PatientForm,
+    });
+    res.send({ status: "ok" });
+  } catch (error) {
+    if (error.code === 11000 && error.keyPattern.PatientForm) {
+      res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
+    } else {
+      console.error(error);
+      res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
+    }
+  }
+});
+
+// app.get("/searchassessment", async (req, res) => {
+//   try {
+//     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+
+//     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
+//     const regex = new RegExp(escapeRegex(keyword), "i");
+
+//     const result = await User.find({
+//       $or: [ { name: { $regex: regex } },{ surname: { $regex: regex } }],
+//     });
+
+//     res.json({ status: "ok", data: result });
+//   } catch (error) {
+//     res.json({ status: error });
+//   }
+// });
+app.get("/searchassessment", async (req, res) => {
+  try {
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+    const regex = new RegExp(escapeRegex(keyword), "i");
+
+    // Search in User collection for name and surname
+    const users = await User.find({
+      $or: [{ name: { $regex: regex } }, { surname: { $regex: regex } }],
+    });
+
+    // Search in MedicalInformation collection for Diagnosis, HN, and AN
+    const medicalInfos = await MedicalInformation.find({
+      $or: [
+        { Diagnosis: { $regex: regex } },
+        { HN: { $regex: regex } },
+        { AN: { $regex: regex } },
+      ],
+    });
+
+    // Combine user IDs from both searches
+    const userIdsFromUsers = users.map(user => user._id);
+    const userIdsFromMedicalInfos = medicalInfos.map(info => info.user);
+
+    const uniqueUserIds = [...new Set([...userIdsFromUsers, ...userIdsFromMedicalInfos])];
+
+    const result = await User.find({ _id: { $in: uniqueUserIds } });
+
+    res.json({ status: "ok", data: result });
+  } catch (error) {
+    console.log(error);
+    res.json({ status: "error", message: "An error occurred while searching" });
+  }
+});
+
+//ดึงแบบประเมิน
+app.get("/getassessment/:Patientid", async (req, res) => {
+  const { Patientid } = req.params;
+  try {
+
+    const Assessmentdata = await Assessment.findOne({ PatientForm : Patientid});
+    if (!Assessmentdata ) {
+      return res
+        .status(404)
+        .send({
+          status: "error",
+          message: "not found for this user",
+        });
+    }
+    res.send({ status: "ok", data: Assessmentdata });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ status: "error", message: "Internal Server Error" });
+  }
+});
+
+//ดึงประเมินทั้งหมด
+app.get("/allAssessment", async (req, res) => {
+  try {
+    const allAssessment = await Assessment.find({});
+    res.send({ status: "ok", data: allAssessment });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get("/allAssessments", async (req, res) => {
+  try {
+    const assessments = await Assessment.find().populate('MPersonnel');
+    res.send({ status: "ok", data: assessments });
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 // --------------------------
 //ค้นหาผู้ป่วย
@@ -1533,7 +1912,7 @@ app.get("/searchuser", async (req, res) => {
     const regex = new RegExp(escapeRegex(keyword), "i");
 
     const result = await User.find({
-      $or: [{ username: { $regex: regex } }, { name: { $regex: regex } }],
+      $or: [{ username: { $regex: regex } },{ surname: { $regex: regex } }, { name: { $regex: regex } }],
     });
 
     res.json({ status: "ok", data: result });
@@ -1541,6 +1920,7 @@ app.get("/searchuser", async (req, res) => {
     res.json({ status: error });
   }
 });
+
 
 //ลบผู้ป่วย
 // app.delete("/deleteUser/:id", async (req, res) => {
@@ -1604,10 +1984,10 @@ app.get("/getuser/:id", async (req, res) => {
 
 //แก้ไขผู้ป่วย
 app.post("/updateuser/:id", async (req, res) => {
-  // const { username, name, email,tel,gender,birthday,ID_card_number, nationality,Address  } = req.body;
   const {
     username,
     name,
+    surname,
     email,
     password,
     tel,
@@ -1625,6 +2005,7 @@ app.post("/updateuser/:id", async (req, res) => {
       {
         username,
         name,
+        surname,
         email,
         password,
         tel,
@@ -1834,7 +2215,7 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
   }
 });
 
-//ดึงแพทย์มา
+//ดึงข้อมูลแพทย์
 app.get("/getmpersonnel/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -1843,7 +2224,6 @@ app.get("/getmpersonnel/:id", async (req, res) => {
     if (!mpersonnel) {
       return res.status(404).json({ error: "mpersonnel not found" });
     }
-
     res.json(mpersonnel);
   } catch (error) {
     console.error("Error fetching mpersonnel:", error);
@@ -1851,9 +2231,26 @@ app.get("/getmpersonnel/:id", async (req, res) => {
   }
 });
 
-//แก้ไขอุปกรณ์
+
+// app.get("/getmpersonnelass/:id", async (req, res) => {
+//   const { id } = req.params;
+//   try {
+//     const mpersonnel = await MPersonnel.findOne(id);
+
+//     if (!mpersonnel) {
+//       return res.status(404).json({ error: "mpersonnel not found" });
+//     }
+
+//     res.json(mpersonnel);
+//   } catch (error) {
+//     console.error("Error fetching mpersonnel:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+//แก้ไขแพทย์
 app.post("/updatemp/:id", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name } =
+  const { username, password, email, confirmPassword, tel, nametitle, name,surname } =
     req.body;
   const { id } = req.params;
 
@@ -1868,6 +2265,7 @@ app.post("/updatemp/:id", async (req, res) => {
         tel,
         nametitle,
         name,
+        surname,
       },
       { new: true }
     );

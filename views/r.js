@@ -1,26 +1,18 @@
-app.post("/addequip", async (req, res) => {
-  const { equipment_name, equipment_type } = req.body;
+app.get("/medicalInformation/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const oldequipment = await Equipment.findOne({ equipment_name });
-
-    if (oldequipment) {
-      return res.json({ error: "Equipment Exists" });
+    const medicalInfo = await MedicalInformation.findOne({ user: id });
+    if (!medicalInfo) {
+      return res
+        .status(404)
+        .send({
+          status: "error",
+          message: "Medical information not found for this user",
+        });
     }
-
-    // const existingAdmin = await Admins.findById(adminId);
-    // if (!existingAdmin) {
-    //   return res.json({ error: "Invalid Admin ID" });
-    // }
-
-    await Equipment.create({
-      equipment_name,
-      equipment_type,
-      // admin: [adminId], // อ้างอิงไปยัง Admin ID
-    });
-
-    res.send({ status: "ok" });
+    res.send({ status: "ok", data: medicalInfo });
   } catch (error) {
-    console.error(error);
-    res.send({ status: "error" });
+    console.log(error);
+    res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
