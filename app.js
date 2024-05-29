@@ -140,7 +140,7 @@ app.post("/forgot-password", async (req, res) => {
     });
 
     console.log(link);
-  } catch (error) {}
+  } catch (error) { }
 });
 
 app.get("/reset-password/:id/:token", async (req, res) => {
@@ -233,7 +233,7 @@ app.post("/profile", async (req, res) => {
         if (error.name === "TokenExpiredError") {
           return "token expired";
         } else {
-          throw error; 
+          throw error;
         }
       }
       return decoded;
@@ -323,33 +323,39 @@ app.post("/addequip", async (req, res) => {
 
 app.post("/addequipuser", async (req, res) => {
   try {
-    // รับข้อมูลที่ส่งมาจากไคลเอนต์
-    const equipments = req.body;
+    const { equipments, userId } = req.body;
 
-    // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
-    const lastAddedUser = await User.findOne().sort({ _id: -1 });
-
-    // ตรวจสอบว่ามีผู้ใช้หรือไม่
-    if (!lastAddedUser) {
+    if (!userId) {
       return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
     }
 
-    // สร้างอาเรย์ของอุปกรณ์ผู้ใช้
+    const existingEquipments = await EquipmentUser.find({ user: userId });
+    const existingEquipNames = existingEquipments.map(equip => equip.equipmentname_forUser);
+
+    const duplicateEquipments = equipments.filter(equip =>
+      existingEquipNames.includes(equip.equipmentname_forUser)
+    );
+
+    if (duplicateEquipments.length > 0) {
+      return res.json({ status: "error", message: "มีอุปกรณ์นี้อยู่แล้ว" });
+    }
+
     const equipmentUsers = equipments.map((equip) => ({
       equipmentname_forUser: equip.equipmentname_forUser,
       equipmenttype_forUser: equip.equipmenttype_forUser,
-      user: lastAddedUser._id,
+      user: userId,
     }));
 
-    // เพิ่มข้อมูลอุปกรณ์ผู้ใช้ลงในฐานข้อมูล
     const equipusers = await EquipmentUser.create(equipmentUsers);
 
-    // ส่งข้อมูลการเพิ่มข้อมูลอุปกรณ์ผู้ใช้กลับไปยังไคลเอนต์
     res.json({ status: "ok", data: equipusers });
   } catch (error) {
-    res.send({ status: "error" });
+    console.error("Error adding equipment users:", error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
+
+app.post("/updateequipuser")
 // Assuming you have an Express route to handle fetching equipment for a user
 app.get("/equipment/:userId", async (req, res) => {
   try {
@@ -569,11 +575,11 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       filePhychosocial = req.files["filePhy"][0].path;
     }
 
-    // ดึงข้อมูลผู้ใช้ล่าสุดที่เพิ่มมา
-    const lastAddedUser = await User.findOne().sort({ _id: -1 });
+    // ดึงข้อมูลผู้ใช้จาก user id ที่ส่งมากับคำขอ
+    const userId = req.user;
 
     // ตรวจสอบว่ามีผู้ใช้หรือไม่
-    if (!lastAddedUser) {
+    if (!userId) {
       return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
     }
 
@@ -591,7 +597,7 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       fileM: fileManage,
       fileP: filePresent,
       filePhy: filePhychosocial,
-      user: [lastAddedUser._id], // ใช้ ID ของผู้ใช้ที่เพิ่มล่าสุด
+      user: userId, // ใช้ ID ของผู้ใช้ที่ส่งมากับคำขอ
     });
 
     res.json({ status: "ok", data: medicalInformation });
@@ -732,6 +738,34 @@ app.delete("/deleteEquipment/:id", async (req, res) => {
   } catch (error) {
     console.error("Error during deletion:", error);
     res.status(500).json({ status: "Error", data: "Internal Server Error" });
+  }
+});
+
+app.delete("/deleteEquipuser/:id", async (req, res) => {
+  try {
+    const { equipmentName, userId } = req.body;
+
+    if (!userId) {
+      return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
+    }
+
+    if (!equipmentName) {
+      return res.json({ status: "error", message: "ไม่พบชื่ออุปกรณ์" });
+    }
+
+    const deletedEquip = await EquipmentUser.findOneAndDelete({
+      user: userId,
+      equipmentname_forUser: equipmentName,
+    });
+
+    if (!deletedEquip) {
+      return res.json({ status: "error", message: "ไม่พบอุปกรณ์ที่จะลบ" });
+    }
+
+    res.json({ status: "ok", message: "ลบอุปกรณ์สำเร็จ" });
+  } catch (error) {
+    console.error("Error removing equipment user:", error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
@@ -991,7 +1025,7 @@ app.post("/forgot-passworddt", async (req, res) => {
     });
 
     console.log(link);
-  } catch (error) {}
+  } catch (error) { }
 });
 
 app.get("/reset-passworddt/:id/:token", async (req, res) => {
@@ -1211,7 +1245,7 @@ async function saveDataToMongoDB() {
         console.log(`User with username ${row[1]} or email ${row[4]} already exists. Skipping...`);
         continue;
       }
-   
+
       const encryptedPassword = await bcrypt.hash(row[5], 10);
       const newUser = new User({
         username: row[1],
@@ -1292,7 +1326,7 @@ async function saveDataToMongoDB() {
 //   }
 // }
 
-// setInterval(saveDataToMongoDB,  0.1* 60 * 1000);
+setInterval(saveDataToMongoDB, 0.2 * 60 * 1000);
 
 //loginuser
 // app.post("/loginuser", async (req, res) => {
@@ -1449,7 +1483,7 @@ app.post('/reset-password', async (req, res) => {
 });
 
 
-app.post("/updateuser", async (req, res) => {
+app.post("/updateuserinfo/:id", async (req, res) => {
   const {
     username,
     name,
@@ -1460,11 +1494,17 @@ app.post("/updateuser", async (req, res) => {
     ID_card_number,
     nationality,
     Address,
+    user, // ID ของผู้ใช้ที่ใช้เชื่อมโยงกับผู้ดูแล
+    caregiverName,
+    caregiverSurname,
+    caregiverTel,
+    Relationship
   } = req.body;
-  
+
   try {
+    // อัปเดตข้อมูลผู้ใช้
     await User.updateOne(
-      { username: username }, // ใช้ username เพื่อระบุผู้ใช้ที่ต้องการอัปเดต
+      { username: username },
       {
         $set: {
           name,
@@ -1476,14 +1516,31 @@ app.post("/updateuser", async (req, res) => {
           nationality,
           Address,
         },
-      },
+      }
     );
+
+    // อัปเดตข้อมูลผู้ดูแล
+    if (user) {
+      await Caregiver.updateOne(
+        { user: user },
+        {
+          $set: {
+            name: caregiverName,
+            surname: caregiverSurname,
+            tel: caregiverTel,
+            Relationship,
+          },
+        }
+      );
+    }
+
     res.send({ status: "Ok", data: "Updated" });
   } catch (error) {
-    console.error("Error updating user:", error);
-    return res.status(500).send({ error: "Error updating user" });
+    console.error("Error updating user or caregiver:", error);
+    return res.status(500).send({ error: "Error updating user or caregiver" });
   }
 });
+
 //ดึงข้อมูลผู้ดูแล
 app.get("/getcaregiver/:id", async (req, res) => {
   const { id } = req.params;
@@ -1494,8 +1551,8 @@ app.get("/getcaregiver/:id", async (req, res) => {
         message: "id is required",
       });
     }
-    const Caregiverinfo = await Caregiver.findOne({ user : id});
-    if (!Caregiverinfo ) {
+    const Caregiverinfo = await Caregiver.findOne({ user: id });
+    if (!Caregiverinfo) {
       return res
         .status(404)
         .send({
@@ -1519,7 +1576,7 @@ app.post("/updatecaregiver", async (req, res) => {
     tel,
     Relationship,
   } = req.body;
-  
+
   try {
     if (!user) {
       return res.status(400).send({ error: "User is required" });
@@ -1545,57 +1602,57 @@ app.post("/updatecaregiver", async (req, res) => {
 //แก้ไขรหัสผ่าน
 app.post("/updatepassuser", async (req, res) => {
   const {
-      username,
-      password,
-      newPassword,
-      confirmNewPassword
+    username,
+    password,
+    newPassword,
+    confirmNewPassword
   } = req.body;
 
   try {
       if (!username || !password || !newPassword || !confirmNewPassword) {
-          return res.status(400).send({ error: "กรุณากรอกรหัส" });
+          return res.status(400).send({ error: "Missing required fields" });
       }
 
-      if (newPassword.trim() !== confirmNewPassword.trim()) {
-          return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
-      }
+    if (newPassword.trim() !== confirmNewPassword.trim()) {
+      return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
+    }
 
-      // ตรวจสอบรหัสผ่านเก่า
-      const user = await User.findOne({ username: username });
-      if (!user) {
-          return res.status(404).json({ error: "User not found" });
-      }
+    // ตรวจสอบรหัสผ่านเก่า
+    const user = await User.findOne({ username: username });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-          return res.status(401).json({ error: "รหัสผ่านเก่าไม่ถูกต้อง" });
-      }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "รหัสผ่านเก่าไม่ถูกต้อง" });
+    }
 
-      const encryptedNewPassword = await bcrypt.hash(newPassword, 10);
+    const encryptedNewPassword = await bcrypt.hash(newPassword, 10);
 
-      await User.updateOne(
-          { username: username },
-          {
-              $set: {
-                  password: encryptedNewPassword,
-              },
-          },
-      );
-      res.send({ status: "Ok", data: "Updated" });
+    await User.updateOne(
+      { username: username },
+      {
+        $set: {
+          password: encryptedNewPassword,
+        },
+      },
+    );
+    res.send({ status: "Ok", data: "Updated" });
   } catch (error) {
-      console.error("Error updating user:", error);
-      return res.status(500).send({ error: "Error updating user" });
+    console.error("Error updating user:", error);
+    return res.status(500).send({ error: "Error updating user" });
   }
 });
 
 
 app.post("/addpatientform", async (req, res) => {
-  const { Symptom1,Symptom2,Symptom3,Symptom4,Symptom5, BloodPressure, PulseRate, Temperature,DTX,Resptration,LevelSymptom,Painscore,request_detail,Recorder,user} = req.body;
+  const { Symptom1, Symptom2, Symptom3, Symptom4, Symptom5, BloodPressure, PulseRate, Temperature, DTX, Resptration, LevelSymptom, Painscore, request_detail, Recorder, user } = req.body;
   try {
     await PatientForm.create({
-      Symptom1,Symptom2,Symptom3,Symptom4,Symptom5,
-      BloodPressure, 
-      PulseRate, 
+      Symptom1, Symptom2, Symptom3, Symptom4, Symptom5,
+      BloodPressure,
+      PulseRate,
       Temperature,
       DTX,
       Resptration,
@@ -2319,28 +2376,34 @@ app.get("/getequip/:id", async (req, res) => {
 });
 
 //แก้ไขอุปกรณ์
-app.post("/updateequip/:id", async (req, res) => {
-  const { equipment_name, equipment_type } = req.body;
-  const { id } = req.params;
-
+app.post("/updateequipuser/:id", async (req, res) => {
   try {
-    const UpdatedEquipment = await Equipment.findByIdAndUpdate(
-      id,
-      {
-        equipment_name,
-        equipment_type,
-      },
-      { new: true }
-    );
+    const userId = req.params.id;
+    const { equipments } = req.body;
 
-    // await Admins.findByIdAndUpdate(id, { password: encryptedNewPassword });
-    if (!UpdatedEquipment) {
-      return res.status(404).json({ status: "Equip not found" });
+    // ตรวจสอบว่ามีอุปกรณ์ที่ต้องการอัปเดตหรือไม่
+    if (!equipments || equipments.length === 0) {
+      return res.json({ status: "error", message: "ไม่มีข้อมูลอุปกรณ์" });
     }
 
-    res.json({ status: "ok", UpdatedEquipment });
+    // สร้างอาเรย์ของอุปกรณ์ผู้ใช้ใหม่
+    const updatedEquipmentUsers = equipments.map((equip) => ({
+      equipmentname_forUser: equip.equipmentname_forUser,
+      equipmenttype_forUser: equip.equipmenttype_forUser,
+      user: userId,
+    }));
+
+    // ลบอุปกรณ์เดิมของผู้ใช้
+    await EquipmentUser.deleteMany({ user: userId });
+
+    // เพิ่มข้อมูลอุปกรณ์ใหม่ลงในฐานข้อมูล
+    const equipusers = await EquipmentUser.create(updatedEquipmentUsers);
+
+    // ส่งข้อมูลการอัปเดตกลับไปยังไคลเอนต์
+    res.json({ status: "ok", data: equipusers });
   } catch (error) {
-    res.json({ status: error });
+    console.error("Error updating equipment users:", error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
@@ -2417,14 +2480,14 @@ app.delete("/deletesymptom/:id", async (req, res) => {
 
 //แก้ไขอาการ
 app.post("/updatesymptom/:id", async (req, res) => {
-  const { name} = req.body;
+  const { name } = req.body;
   const { id } = req.params;
 
   try {
     const UpdatedSymptom = await Symptom.findByIdAndUpdate(
       id,
       {
-        name,      
+        name,
       },
       { new: true }
     );
@@ -2434,7 +2497,7 @@ app.post("/updatesymptom/:id", async (req, res) => {
       return res.status(404).json({ status: "Symptom not found" });
     }
 
-    res.json({ status: "ok", UpdatedSymptom});
+    res.json({ status: "ok", UpdatedSymptom });
   } catch (error) {
     res.json({ status: error });
   }
@@ -2444,7 +2507,7 @@ app.get("/getsymptom/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const symptom= await Symptom.findById(id);
+    const symptom = await Symptom.findById(id);
 
     if (!symptom) {
       return res.status(404).json({ error: "symptom not found" });

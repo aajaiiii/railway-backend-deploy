@@ -29,17 +29,18 @@ const equipmentScehma = new mongoose.Schema(
 mongoose.model("Equipment", equipmentScehma);
 
 const equipmentuserScehma = new mongoose.Schema(
-  {
-    equipmentname_forUser: String,
-    equipmenttype_forUser: String,
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    {
+        equipmentname_forUser: String,
+        equipmenttype_forUser: String,
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+            
+        }
     },
-  },
-  {
-    collection: "EquipmentUser",
-  }
+    {
+        collection: "EquipmentUser",
+    }
 );
 
 mongoose.model("EquipmentUser", equipmentuserScehma);
