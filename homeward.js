@@ -45,6 +45,7 @@ const equipmentuserScehma = new mongoose.Schema(
     },
     {
         collection: "EquipmentUser",
+        timestamps: true,
     }
 );
 
