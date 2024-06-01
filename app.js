@@ -1326,7 +1326,7 @@ async function saveDataToMongoDB() {
 //   }
 // }
 
-setInterval(saveDataToMongoDB, 0.2 * 60 * 1000);
+// setInterval(saveDataToMongoDB, 0.2 * 60 * 1000);
 
 //loginuser
 // app.post("/loginuser", async (req, res) => {
@@ -1350,19 +1350,7 @@ setInterval(saveDataToMongoDB, 0.2 * 60 * 1000);
 //   res.json({ status: "error", error: "InvAlid Password" });
 // });
 
-// app.post("/userdata", async (req, res) => {
-//   const { token } = req.body;
-//   try {
-//     const user = jwt.verify(token, JWT_SECRET);
-//     const username = user.username;
-
-//     User.findOne({ username: username }).then((data) => {
-//       return res.send({ status: "Ok", data: data });
-//     });
-//   } catch (error) {
-//     return res.send({ error: error });
-//   }
-// });
+//แอป
 app.post("/userdata", async (req, res) => {
   const { token } = req.body;
   try {
@@ -1370,18 +1358,31 @@ app.post("/userdata", async (req, res) => {
     const username = user.username;
 
     User.findOne({ username: username }).then((data) => {
-      if (!data) {
-        return res.status(404).json({ error: "ไม่พบข้อมูลผู้ใช้" });
-      }
       return res.send({ status: "Ok", data: data });
     });
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: "Token หมดอายุ" });
-    }
-    return res.status(400).json({ error: "Token ไม่ถูกต้อง" });
+    return res.send({ error: error });
   }
 });
+// app.post("/userdata", async (req, res) => {
+//   const { token } = req.body;
+//   try {
+//     const user = jwt.verify(token, JWT_SECRET);
+//     const username = user.username;
+
+//     User.findOne({ username: username }).then((data) => {
+//       if (!data) {
+//         return res.status(404).json({ error: "ไม่พบข้อมูลผู้ใช้" });
+//       }
+//       return res.send({ status: "Ok", data: data });
+//     });
+//   } catch (error) {
+//     if (error.name === 'TokenExpiredError') {
+//       return res.status(401).json({ error: "Token หมดอายุ" });
+//     }
+//     return res.status(400).json({ error: "Token ไม่ถูกต้อง" });
+//   }
+// });
 
 
 app.post("/loginuser", async (req, res) => {
@@ -1566,8 +1567,44 @@ app.get("/getcaregiver/:id", async (req, res) => {
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
-//แก้ไขผู้ดูแล
+//แก้ไขผู้ป่วย แอป
+app.post("/updateuserapp", async (req, res) => {
+  const {
+    username,
+    name,
+    surname,
+    tel,
+    gender,
+    birthday,
+    ID_card_number,
+    nationality,
+    Address,
+  } = req.body;
+  
+  try {
+    await User.updateOne(
+      { username: username },
+      {
+        $set: {
+          name,
+          surname,
+          tel,
+          gender,
+          birthday,
+          ID_card_number,
+          nationality,
+          Address,
+        },
+      },
+    );
+    res.send({ status: "Ok", data: "Updated" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).send({ error: "Error updating user" });
+  }
+});
 
+//แก้ไขผู้ดูแล แอป
 app.post("/updatecaregiver", async (req, res) => {
   const {
     user,
@@ -1696,6 +1733,8 @@ app.get("/getpatientformsone/:id", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
+// จบแอป-------------------------------------------
 
 //กราฟDTX แบบมีเท่าไหร่มาหมด
 // app.get("/getDTXData/:userId", async (req, res) => {
@@ -2085,6 +2124,7 @@ app.post("/updateuser/:id", async (req, res) => {
     res.json({ status: error });
   }
 });
+
 
 // app.get("/getadmin/:id", async (req, res) => {
 //   const { id } = req.params;

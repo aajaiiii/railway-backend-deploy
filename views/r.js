@@ -1,18 +1,13 @@
-app.get("/medicalInformation/:id", async (req, res) => {
-  const { id } = req.params;
+app.post("/userdata", async (req, res) => {
+  const { token } = req.body;
   try {
-    const medicalInfo = await MedicalInformation.findOne({ user: id });
-    if (!medicalInfo) {
-      return res
-        .status(404)
-        .send({
-          status: "error",
-          message: "Medical information not found for this user",
-        });
-    }
-    res.send({ status: "ok", data: medicalInfo });
+    const user = jwt.verify(token, JWT_SECRET);
+    const useremail = user.email;
+
+    User.findOne({ email: useremail }).then((data) => {
+      return res.send({ status: "Ok", data: data });
+    });
   } catch (error) {
-    console.log(error);
-    res.status(500).send({ status: "error", message: "Internal Server Error" });
+    return res.send({ error: error });
   }
 });
