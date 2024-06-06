@@ -393,10 +393,10 @@ app.get("/alladmin", async (req, res) => {
 
 //เพิ่มข้อมูลแพทย์
 app.post("/addmpersonnel", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name,surname } =
+  const { username, password, email, confirmPassword, tel, nametitle, name, surname } =
     req.body;
   const encryptedPassword = await bcrypt.hash(password, 10);
-  if (!username || !password || !email || !name || !surname ||!nametitle ) {
+  if (!username || !password || !email || !name || !surname || !nametitle) {
     return res.json({
       error:
         "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล",
@@ -542,23 +542,24 @@ const upload1 = multer({ storage: storage }).fields([
   { name: "filePhy", maxCount: 1 },
 ]);
 
-//เพิ่มข้อมูลเจ็บป่วย
+// Add medical information
 app.post("/addmedicalinformation", upload1, async (req, res) => {
-  const {
-    HN,
-    AN,
-    Date_Admit,
-    Date_DC,
-    Diagnosis,
-    Chief_complaint,
-    selectedPersonnel,
-    Present_illness,
-    Phychosocial_assessment,
-    Management_plan,
-  } = req.body;
-
   try {
-    // สร้างข้อมูลการแพทย์ใหม่
+    const {
+      HN,
+      AN,
+      Date_Admit,
+      Date_DC,
+      Diagnosis,
+      Chief_complaint,
+      selectedPersonnel,
+      Present_illness,
+      Phychosocial_assessment,
+      Management_plan,
+      userId // This should match the key in the frontend FormData
+    } = req.body;
+
+    // Initializing file variables
     let filePresent = "";
     let fileManage = "";
     let filePhychosocial = "";
@@ -575,14 +576,12 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       filePhychosocial = req.files["filePhy"][0].path;
     }
 
-    // ดึงข้อมูลผู้ใช้จาก user id ที่ส่งมากับคำขอ
-    const userId = req.user;
-
-    // ตรวจสอบว่ามีผู้ใช้หรือไม่
+    // Check if userId is present
     if (!userId) {
       return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
     }
 
+    // Create new medical information record
     const medicalInformation = await MedicalInformation.create({
       HN,
       AN,
@@ -597,12 +596,13 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       fileM: fileManage,
       fileP: filePresent,
       filePhy: filePhychosocial,
-      user: userId, // ใช้ ID ของผู้ใช้ที่ส่งมากับคำขอ
+      user: userId, // Use the userId sent from the frontend
     });
 
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
-    res.send({ status: "error" });
+    console.error("Error adding medical information:", error); // Log the error for debugging
+    res.json({ status: "error", message: "เกิดข้อผิดพลาดขณะเพิ่มข้อมูล" });
   }
 });
 
@@ -625,25 +625,6 @@ app.get("/medicalInformation/:id", async (req, res) => {
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
-
-
-
-// app.get("/getmedicalInformation/:id", async (req, res) => {
-//   const { id } = req.params;
-
-//   try {
-//     const medicalInfo = await MedicalInformation.findById(id);
-
-//     if (!medicalInfo) {
-//       return res.status(404).json({ error: "medicalInfo not found" });
-//     }
-
-//     res.json(medicalInfo);
-//   } catch (error) {
-//     console.error("Error fetching medicalInfo:", error);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// });
 
 // // ดึงข้อมูลผู้ป่วยมาโชว์
 app.get("/alluser", async (req, res) => {
@@ -766,6 +747,23 @@ app.delete("/deleteEquipuser/:id", async (req, res) => {
   } catch (error) {
     console.error("Error removing equipment user:", error);
     res.status(500).json({ status: "error", message: "Internal server error" });
+  }
+});
+
+app.delete("/deletemedicalInformation/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const medicalInfo = await MedicalInformation.deleteOne({ user: id });
+
+    if (!medicalInfo.deletedCount) {
+      return res.status(404).json({ error: "Medical information not found for this user" });
+    }
+
+    res.json({ message: "ลบข้อมูลการเจ็บป่วยสำเร็จ", data: medicalInfo });
+  } catch (error) {
+    console.error("Error deleting medical information:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -968,12 +966,12 @@ app.post("/updatepassword/:id", async (req, res) => {
 
 //แก้ไขโปรไฟล์หมอ
 app.post("/updateprofile/:id", async (req, res) => {
-  const { nametitle, name,surname, tel } = req.body;
+  const { nametitle, name, surname, tel } = req.body;
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await MPersonnel.findByIdAndUpdate(id, { nametitle, name, surname , tel });
+    await MPersonnel.findByIdAndUpdate(id, { nametitle, name, surname, tel });
 
     res
       .status(200)
@@ -1419,7 +1417,7 @@ app.post('/forgot-passworduser', async (req, res) => {
 
   const user = await User.findOne({ email });
   if (!user) {
-      return res.status(400).send('User not found');
+    return res.status(400).send('User not found');
   }
 
   const otp = crypto.randomBytes(3).toString('hex');
@@ -1430,25 +1428,25 @@ app.post('/forgot-passworduser', async (req, res) => {
   await user.save();
 
   const transporter = nodemailer.createTransport({
-      service: 'Gmail',
-      auth: {
-          user: 'oysasitorn@gmail.com',
-          pass: 'avyn xfwl pqio hmtr',
-      },
+    service: 'Gmail',
+    auth: {
+      user: 'oysasitorn@gmail.com',
+      pass: 'avyn xfwl pqio hmtr',
+    },
   });
 
   const mailOptions = {
-      from: "oysasitorn@gmail.com",
-      to: user.email,
-      subject: 'Home Ward: OTP for Password Reset',
-      text: `Your OTP is ${otp}`,
+    from: "oysasitorn@gmail.com",
+    to: user.email,
+    subject: 'Home Ward: OTP for Password Reset',
+    text: `Your OTP is ${otp}`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-          return res.status(500).send('Error sending email');
-      }
-      res.send('OTP sent');
+    if (error) {
+      return res.status(500).send('Error sending email');
+    }
+    res.send('OTP sent');
   });
 });
 
@@ -1457,21 +1455,21 @@ app.post('/verify-otp', async (req, res) => {
 
   const user = await User.findOne({ email, otp, otpExpiration: { $gt: Date.now() } });
   if (!user) {
-      return res.status(400).send('Invalid OTP or OTP expired');
+    return res.status(400).send('Invalid OTP or OTP expired');
   }
 
   res.send('OTP verified');
 });
 
 app.post('/reset-password', async (req, res) => {
-  const { email, newPassword,confirmpassword } = req.body;
+  const { email, newPassword, confirmpassword } = req.body;
 
   const user = await User.findOne({ email });
   if (!user) {
-      return res.status(400).send('ไม่พบบัญชีนี้');
+    return res.status(400).send('ไม่พบบัญชีนี้');
   }
   if (newPassword !== confirmpassword) {
-    return res.send("รหัสผ่านไม่ตรงกัน" );
+    return res.send("รหัสผ่านไม่ตรงกัน");
   }
   const encryptedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -1580,7 +1578,7 @@ app.post("/updateuserapp", async (req, res) => {
     nationality,
     Address,
   } = req.body;
-  
+
   try {
     await User.updateOne(
       { username: username },
@@ -1646,9 +1644,9 @@ app.post("/updatepassuser", async (req, res) => {
   } = req.body;
 
   try {
-      if (!username || !password || !newPassword || !confirmNewPassword) {
-          return res.status(400).send({ error: "Missing required fields" });
-      }
+    if (!username || !password || !newPassword || !confirmNewPassword) {
+      return res.status(400).send({ error: "Missing required fields" });
+    }
 
     if (newPassword.trim() !== confirmNewPassword.trim()) {
       return res.status(400).json({ error: "รหัสผ่านไม่ตรงกัน" });
@@ -1710,7 +1708,7 @@ app.post("/addpatientform", async (req, res) => {
 //เอาบันทึกคนนี้้มาทั้งหมด
 app.get("/getpatientforms/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId }).populate('user');
     res.send({ status: "ok", data: patientForms });
@@ -1723,8 +1721,8 @@ app.get("/getpatientforms/:userId", async (req, res) => {
 //ฝั่งแพทย์
 // เอาอาการที่เลือกมาแสดง
 app.get("/getpatientformsone/:id", async (req, res) => {
-  const {id} = req.params;
-  
+  const { id } = req.params;
+
   try {
     const patientFormsone = await PatientForm.findById(id);
     res.send({ status: "ok", data: patientFormsone });
@@ -1739,7 +1737,7 @@ app.get("/getpatientformsone/:id", async (req, res) => {
 //กราฟDTX แบบมีเท่าไหร่มาหมด
 // app.get("/getDTXData/:userId", async (req, res) => {
 //   const userId = req.params.userId;
-  
+
 //   try {
 //     const patientForms = await PatientForm.find({ user: userId }).populate('user');
 
@@ -1758,18 +1756,18 @@ app.get("/getpatientformsone/:id", async (req, res) => {
 //แค่7
 app.get("/getDTXData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const dtxData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const dtxData = patientForms.map(form => ({
+      name: form.user.name,
       DTX: form.DTX,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
     res.send({ status: "ok", data: dtxData });
   } catch (error) {
@@ -1781,18 +1779,18 @@ app.get("/getDTXData/:userId", async (req, res) => {
 
 app.get("/getPainscoreData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const PainscoreData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const PainscoreData = patientForms.map(form => ({
+      name: form.user.name,
       Painscore: form.Painscore,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
     res.send({ status: "ok", data: PainscoreData });
   } catch (error) {
@@ -1804,20 +1802,20 @@ app.get("/getPainscoreData/:userId", async (req, res) => {
 
 app.get("/getTemperatureData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const  TemperatureData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const TemperatureData = patientForms.map(form => ({
+      name: form.user.name,
       Temperature: form.Temperature,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
-    res.send({ status: "ok", data:  TemperatureData });
+    res.send({ status: "ok", data: TemperatureData });
   } catch (error) {
     console.error("Error fetching  Temperature data:", error);
     res.send({ status: "error" });
@@ -1826,20 +1824,20 @@ app.get("/getTemperatureData/:userId", async (req, res) => {
 
 app.get("/getBloodPressureData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const  BloodPressureData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const BloodPressureData = patientForms.map(form => ({
+      name: form.user.name,
       BloodPressure: form.BloodPressure,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
-    res.send({ status: "ok", data:  BloodPressureData });
+    res.send({ status: "ok", data: BloodPressureData });
   } catch (error) {
     console.error("Error fetching  BloodPressure data:", error);
     res.send({ status: "error" });
@@ -1848,20 +1846,20 @@ app.get("/getBloodPressureData/:userId", async (req, res) => {
 
 app.get("/getPulseRateData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const  PulseRateData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const PulseRateData = patientForms.map(form => ({
+      name: form.user.name,
       PulseRate: form.PulseRate,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
-    res.send({ status: "ok", data:  PulseRateData });
+    res.send({ status: "ok", data: PulseRateData });
   } catch (error) {
     console.error("Error fetching  PulseRate data:", error);
     res.send({ status: "error" });
@@ -1871,20 +1869,20 @@ app.get("/getPulseRateData/:userId", async (req, res) => {
 
 app.get("/getResptrationData/:userId", async (req, res) => {
   const userId = req.params.userId;
-  
+
   try {
     const patientForms = await PatientForm.find({ user: userId })
-                                          .populate('user')
-                                          .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-                                          .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
+      .populate('user')
+      .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
+      .limit(7); // จำกัดให้แสดงเฉพาะ 7 อันแรก
 
-    const  ResptrationData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const ResptrationData = patientForms.map(form => ({
+      name: form.user.name,
       Resptration: form.Resptration,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
-    res.send({ status: "ok", data:  ResptrationData });
+    res.send({ status: "ok", data: ResptrationData });
   } catch (error) {
     console.error("Error fetching  Resptration data:", error);
     res.send({ status: "error" });
@@ -1963,8 +1961,8 @@ app.get("/getassessment/:Patientid", async (req, res) => {
   const { Patientid } = req.params;
   try {
 
-    const Assessmentdata = await Assessment.findOne({ PatientForm : Patientid});
-    if (!Assessmentdata ) {
+    const Assessmentdata = await Assessment.findOne({ PatientForm: Patientid });
+    if (!Assessmentdata) {
       return res
         .status(404)
         .send({
@@ -2008,7 +2006,7 @@ app.get("/searchuser", async (req, res) => {
     const regex = new RegExp(escapeRegex(keyword), "i");
 
     const result = await User.find({
-      $or: [{ username: { $regex: regex } },{ surname: { $regex: regex } }, { name: { $regex: regex } }],
+      $or: [{ username: { $regex: regex } }, { surname: { $regex: regex } }, { name: { $regex: regex } }],
     });
 
     res.json({ status: "ok", data: result });
@@ -2347,7 +2345,7 @@ app.get("/getmpersonnel/:id", async (req, res) => {
 
 //แก้ไขแพทย์
 app.post("/updatemp/:id", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name,surname } =
+  const { username, password, email, confirmPassword, tel, nametitle, name, surname } =
     req.body;
   const { id } = req.params;
 
