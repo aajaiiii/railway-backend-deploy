@@ -23,6 +23,7 @@ const equipmentScehma = new mongoose.Schema(
   },
   {
     collection: "Equipment",
+    timestamps: true,
   }
 );
 
@@ -40,6 +41,7 @@ const equipmentuserScehma = new mongoose.Schema(
     },
     {
         collection: "EquipmentUser",
+        timestamps: true,
     }
 );
 

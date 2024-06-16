@@ -293,6 +293,26 @@ app.post("/profile", async (req, res) => {
 //     res.send({ status: "error", data: "token verification error" });
 //   }
 // });
+app.post('/updateequip/:id', async (req, res) => {
+  const { id } = req.params;
+  const { equipment_name, equipment_type } = req.body;
+  try {
+    const equipment = await Equipment.findById(id);
+
+    if (!equipment) {
+      return res.status(404).json({ error: 'Equipment not found' });
+    }
+
+    equipment.equipment_name = equipment_name;
+    equipment.equipment_type = equipment_type;
+    await equipment.save();
+
+    res.send({ status: 'ok', equipment });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: 'error' });
+  }
+});
 
 app.post("/addequip", async (req, res) => {
   const { equipment_name, equipment_type } = req.body;
@@ -302,16 +322,9 @@ app.post("/addequip", async (req, res) => {
     if (oldequipment) {
       return res.json({ error: "Equipment Exists" });
     }
-
-    // const existingAdmin = await Admins.findById(adminId);
-    // if (!existingAdmin) {
-    //   return res.json({ error: "Invalid Admin ID" });
-    // }
-
     await Equipment.create({
       equipment_name,
       equipment_type,
-      // admin: [adminId], // อ้างอิงไปยัง Admin ID
     });
 
     res.send({ status: "ok" });
@@ -355,8 +368,6 @@ app.post("/addequipuser", async (req, res) => {
   }
 });
 
-app.post("/updateequipuser")
-// Assuming you have an Express route to handle fetching equipment for a user
 app.get("/equipment/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
