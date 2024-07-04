@@ -677,7 +677,7 @@ app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' 
 
       fileStream.on('error', (err) => {
         console.error('Error uploading file:', err);
-        res.status(500).json({ success: false, message: 'Error uploading file' });
+        res.status(500).json({ success: false  ,status: "ok" , message: 'Error uploading file' });
       });
 
       fileStream.on('finish', async () => {
@@ -693,7 +693,7 @@ app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' 
             });
 
             await newCare.save();
-            res.json({ success: true, message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
+            res.json({ success: true,status: "ok" , message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
           } catch (error) {
             console.error('Error saving care manual:', error);
             res.status(500).json({ success: false, message: 'Error saving care manual' });
