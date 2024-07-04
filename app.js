@@ -613,7 +613,7 @@ const upload = multer({ storage: storage }).fields([
 //   }
 // });
 
-app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
+app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
   const { caremanual_name, detail } = req.body;
 
   if (!caremanual_name) {
