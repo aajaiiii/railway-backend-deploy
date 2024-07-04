@@ -41,7 +41,6 @@ const equipmentuserScehma = new mongoose.Schema(
     },
     {
         collection: "EquipmentUser",
-        timestamps: true,
     }
 );
 
@@ -85,7 +84,7 @@ const UserScehma = new mongoose.Schema(
   {
     username: { type: String, unique: true },
     password: String,
-    email: { type: String, unique: true },
+    email: { type: String, sparse: true },
     tel: String,
     name: String,
     surname: String,
@@ -94,10 +93,11 @@ const UserScehma = new mongoose.Schema(
     ID_card_number: String,
     nationality: String,
     Address: String,
-    deletedAt: { type: Date, default: null }, // เพิ่มฟิลด์ deletedAt
+    deletedAt: { type: Date, default: null },
     otp: String,
     otpExpiration: Date,
-    // caregiver:[{type: mongoose.Schema.Types.ObjectId,ref:'Caregiver'}]
+    AdddataFirst: { type: Boolean, default: false },
+    physicalTherapy: { type: Boolean, default: false },
   },
   {
     collection: "User",
@@ -165,24 +165,21 @@ const MedicalInformationSchema = new mongoose.Schema(
 mongoose.model("MedicalInformation", MedicalInformationSchema);
 
 //ฟแร์มบันทึกอาการ
-const PatientFormScehma = new mongoose.Schema(
+const PatientFormSchema = new mongoose.Schema(
   {
-    Symptom1: String,
-    Symptom2: String,
-    Symptom3: String,
-    Symptom4: String,
-    Symptom5: String,
-    BloodPressure: Number,
+    Symptoms: [String], // Array เพื่อเก็บอาการ
+    SBP: Number,
+    DBP: Number,
     PulseRate: Number,
     Temperature: Number,
     DTX: Number,
-    Resptration: String,
+    Respiration: Number,
     LevelSymptom: String,
     Painscore: Number,
     request_detail: String,
     Recorder: String,
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    // assesssment: { type: mongoose.Schema.Types.ObjectId, ref: "Assesssment" },
+
   },
   {
     collection: "PatientForm",
@@ -190,7 +187,8 @@ const PatientFormScehma = new mongoose.Schema(
   }
 );
 
-mongoose.model("PatientForm", PatientFormScehma);
+mongoose.model("PatientForm", PatientFormSchema);
+
 
 const AssessmentScehma = new mongoose.Schema(
   {
@@ -200,8 +198,11 @@ const AssessmentScehma = new mongoose.Schema(
     PPS: Number,
     MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
     // PatientForm: { type: mongoose.Schema.Types.ObjectId, ref: "PatientForm" },
-    PatientForm: { type: mongoose.Schema.Types.ObjectId, ref: "PatientForm", unique: true }
-
+    PatientForm: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PatientForm",
+      unique: true,
+    },
   },
   {
     collection: "Assessment",
@@ -210,3 +211,98 @@ const AssessmentScehma = new mongoose.Schema(
 );
 
 mongoose.model("Assessment", AssessmentScehma);
+
+const chatSchema = new mongoose.Schema(
+  {
+    message: String,
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'senderModel',
+    },
+    image: String,
+    recipient: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'recipientModel',
+    },
+    senderModel: {
+      type: String,
+      required: true,
+      enum: ['User', 'MPersonnel'],
+    },
+    recipientModel: {
+      type: String,
+      required: true,
+      enum: ['User', 'MPersonnel'],
+    },
+    isRead: {
+      type: Boolean,
+      default: false
+    },
+    readAt: Date,
+  },
+  {
+    collection: "Chat",
+    timestamps: true,
+  }
+);
+
+mongoose.model("Chat", chatSchema);
+
+
+const AlertSchema = new mongoose.Schema(
+  {
+    patientFormId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PatientForm",
+      required: true
+    },
+    alertMessage: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    resolved: {
+      type: Boolean,
+      default: false
+    },
+    resolvedAt: {
+      type: Date,
+      default: null
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    viewed: {
+      type: Boolean,
+      default: false
+    }
+  },
+  {
+    collection: "Alert",
+    timestamps: true,
+  }
+);
+
+
+mongoose.model("Alert", AlertSchema);
+
+
+const UserThresholdSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  SBP: { min: Number, max: Number },
+  DBP: { min: Number, max: Number },
+  PulseRate: { min: Number, max: Number },
+  Temperature: { min: Number, max: Number },
+  DTX: { min: Number, max: Number },
+  Respiration: { min: Number, max: Number },
+}, {
+  collection: 'UserThresholds',
+  timestamps: true,
+});
+
+mongoose.model('UserThreshold', UserThresholdSchema);
