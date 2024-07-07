@@ -735,22 +735,22 @@ app.delete("/deleteEquipment/:id", async (req, res) => {
 
 app.delete("/deleteEquipuser/:id", async (req, res) => {
   try {
-    const { equipmentName, userId } = req.body;
+    const { equipmentNames, userId } = req.body;
 
     if (!userId) {
       return res.json({ status: "error", message: "ไม่พบข้อมูลผู้ใช้" });
     }
 
-    if (!equipmentName) {
-      return res.json({ status: "error", message: "ไม่พบชื่ออุปกรณ์" });
+    if (!equipmentNames || equipmentNames.length === 0) {
+      return res.json({ status: "error", message: "ไม่พบชื่ออุปกรณ์ที่จะลบ" });
     }
 
-    const deletedEquip = await EquipmentUser.findOneAndDelete({
+    const deletedEquipments = await EquipmentUser.deleteMany({
       user: userId,
-      equipmentname_forUser: equipmentName,
+      equipmentname_forUser: { $in: equipmentNames },
     });
 
-    if (!deletedEquip) {
+    if (deletedEquipments.deletedCount === 0) {
       return res.json({ status: "error", message: "ไม่พบอุปกรณ์ที่จะลบ" });
     }
 
