@@ -5,6 +5,7 @@ const UserDetailsScehma = new mongoose.Schema(
   {
     username: { type: String, unique: true },
     name: String,
+    surname: String,
     email: { type: String, unique: true },
     password: String,
   },
@@ -167,7 +168,7 @@ mongoose.model("MedicalInformation", MedicalInformationSchema);
 //ฟแร์มบันทึกอาการ
 const PatientFormSchema = new mongoose.Schema(
   {
-    Symptoms: [String], // Array เพื่อเก็บอาการ
+    Symptoms: [String], 
     SBP: Number,
     DBP: Number,
     PulseRate: Number,
@@ -197,7 +198,6 @@ const AssessmentScehma = new mongoose.Schema(
     status_name: String,
     PPS: Number,
     MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
-    // PatientForm: { type: mongoose.Schema.Types.ObjectId, ref: "PatientForm" },
     PatientForm: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PatientForm",
@@ -264,23 +264,15 @@ const AlertSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
-    resolved: {
-      type: Boolean,
-      default: false
-    },
-    resolvedAt: {
-      type: Date,
-      default: null
-    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true
     },
-    viewed: {
-      type: Boolean,
-      default: false
-    }
+    viewedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }]
   },
   {
     collection: "Alert",
@@ -288,8 +280,8 @@ const AlertSchema = new mongoose.Schema(
   }
 );
 
-
 mongoose.model("Alert", AlertSchema);
+
 
 
 const UserThresholdSchema = new mongoose.Schema({
