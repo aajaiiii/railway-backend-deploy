@@ -68,11 +68,7 @@ const UserThreshold = mongoose.model("UserThreshold")
 const Assessreadiness = mongoose.model("Assessreadiness")
 
 app.post("/addadmin", async (req, res) => {
-<<<<<<< HEAD
-  const { username, name, surname, email, password, confirmPassword } = req.body;
-=======
   const { username, name,surname, email, password, confirmPassword } = req.body;
->>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
   if (!username || !password || !email) {
     return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
   }
@@ -2889,20 +2885,12 @@ app.post("/updateuser/:id", async (req, res) => {
 // });
 
 app.post("/updatenameadmin/:id", async (req, res) => {
-<<<<<<< HEAD
-  const { name, surname } = req.body;
-=======
   const { name,surname } = req.body;
->>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-<<<<<<< HEAD
-    await Admins.findByIdAndUpdate(id, { name, surname });
-=======
     await Admins.findByIdAndUpdate(id, { name,surname  });
->>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
 
     res
       .status(200)
@@ -3322,11 +3310,7 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 app.get("/searchuserchat", async (req, res) => {
   try {
-<<<<<<< HEAD
-    const { keyword } = req.query;
-=======
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
->>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
 
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
