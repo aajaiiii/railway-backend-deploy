@@ -26,7 +26,7 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: 'homeward-422311.appspot.com'
 });
-
+const JWT_REFRESH_SECRET = 'hvdvay6ert72eerr839289()aiyg8t87qt724tyty393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe';
 
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
@@ -68,7 +68,11 @@ const UserThreshold = mongoose.model("UserThreshold")
 const Assessreadiness = mongoose.model("Assessreadiness")
 
 app.post("/addadmin", async (req, res) => {
+<<<<<<< HEAD
   const { username, name, surname, email, password, confirmPassword } = req.body;
+=======
+  const { username, name,surname, email, password, confirmPassword } = req.body;
+>>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
   if (!username || !password || !email) {
     return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
   }
@@ -105,7 +109,7 @@ app.post("/login", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: '30d',
     });
 
     if (res.status(201)) {
@@ -116,33 +120,7 @@ app.post("/login", async (req, res) => {
   }
   res.json({ status: "error", error: "InvAlid Password" });
 });
-// app.post("/login", async (req, res) => {
-//   const { username, password } = req.body;
 
-//   const user = await Admins.findOne({ username });
-//   if (!user) {
-//     return res.json({ error: "User Not found" });
-//   }
-//   if (await bcrypt.compare(password, user.password)) {
-//     const accessToken = jwt.sign({ username: user.username }, JWT_SECRET, {
-//       expiresIn: "15m",
-//     });
-//     const refreshToken = jwt.sign({ username: user.username }, JWT_REFRESH_SECRET, {
-//       expiresIn: "7d",
-//     });
-
-//     refreshTokens.push(refreshToken); // เก็บรีเฟรชโทเค็น
-
-//     res.cookie('refreshToken', refreshToken, {
-//       httpOnly: true,
-//       secure: true, // ใช้ true ถ้าใช้ https
-//       sameSite: 'Strict'
-//     });
-
-//     return res.json({ status: "ok", data: accessToken });
-//   }
-//   res.json({ status: "error", error: "Invalid Password" });
-// });
 
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -1135,7 +1113,7 @@ app.post("/loginmpersonnel", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "30d",
     });
 
     if (res.status(201)) {
@@ -1359,10 +1337,24 @@ app.get("/searchmpersonnel", async (req, res) => {
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
 
-    const result = await MPersonnel.find({
-      $or: [{ name: { $regex: regex } }, { nametitle: { $regex: regex } }],
-    });
-
+    // รวมชื่อและนามสกุลเป็นฟิลด์เดียวชั่วคราวสำหรับการค้นหา
+    const result = await MPersonnel.aggregate([
+      {
+        $addFields: {
+          fullname: { $concat: ["$nametitle","$name", " ", "$surname"] }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { nametitle: { $regex: regex } },
+            { name: { $regex: regex } },
+            { surname: { $regex: regex } },
+            { fullname: { $regex: regex } }
+          ]
+        }
+      }
+    ]);
     res.json({ status: "ok", data: result });
   } catch (error) {
     res.json({ status: error });
@@ -1733,7 +1725,7 @@ app.post("/loginuser", async (req, res) => {
     if (await bcrypt.compare(password, user.password)) {
 
       const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-        expiresIn: "15m",
+        expiresIn: "30d",
       });
 
       return res.json({ status: "ok", data: { token, addDataFirst: user.AdddataFirst } });
@@ -1746,7 +1738,7 @@ app.post("/loginuser", async (req, res) => {
 });
 
 //เพิ่มข้อมูลครั้งแรก
-app.post("/updateuserinfo", async (req, res) => {
+app.post('/updateuserinfo', async (req, res) => {
   const {
     username,
     name,
@@ -1758,15 +1750,18 @@ app.post("/updateuserinfo", async (req, res) => {
     ID_card_number,
     nationality,
     Address,
-    user,
+    user, // id ของ user ที่จะใช้อัพเดต caregiver
     Relationship,
+    caregivername,
+    caregiversurname,
+    caregivertel,
   } = req.body;
 
   try {
     if (username) {
       // แก้ไขข้อมูลของ User
       await User.updateOne(
-        { username: username },
+        { username },
         {
           $set: {
             name,
@@ -1791,31 +1786,31 @@ app.post("/updateuserinfo", async (req, res) => {
           { user },
           {
             $set: {
-              name,
-              surname,
-              tel,
+              name: caregivername,
+              surname: caregiversurname,
+              tel: caregivertel,
               Relationship,
             },
           }
         );
-        res.send({ status: "Ok", data: "User and Caregiver Updated" });
+        res.send({ status: 'Ok', data: 'User and Caregiver Updated' });
       } else {
         // สร้าง Caregiver ใหม่หากไม่พบ
         await Caregiver.create({
           user,
-          name,
-          surname,
-          tel,
+          name: caregivername,
+          surname: caregiversurname,
+          tel: caregivertel,
           Relationship,
         });
-        res.send({ status: "Ok", data: "User Updated, Caregiver Created" });
+        res.send({ status: 'Ok', data: 'User Updated, Caregiver Created' });
       }
     } else {
-      res.status(400).send({ error: "Invalid request data" });
+      res.status(400).send({ error: 'Invalid request data' });
     }
   } catch (error) {
-    console.error("Error updating user or caregiver:", error);
-    return res.status(500).send({ error: "Error updating user or caregiver" });
+    console.error('Error updating user or caregiver:', error);
+    return res.status(500).send({ error: 'Error updating user or caregiver' });
   }
 });
 
@@ -2265,7 +2260,14 @@ app.get("/alerts", async (req, res) => {
 app.put("/alerts/:id/viewed", async (req, res) => {
   try {
     const alertId = req.params.id;
-    const alert = await Alert.findByIdAndUpdate(alertId, { viewed: true }, { new: true });
+    const userId = req.body.userId;
+
+    const alert = await Alert.findByIdAndUpdate(
+      alertId, 
+      { $addToSet: { viewedBy: userId } }, 
+      { new: true }
+    );
+
     res.json({ alert });
   } catch (error) {
     console.error("Error updating alert viewed status:", error);
@@ -2273,15 +2275,27 @@ app.put("/alerts/:id/viewed", async (req, res) => {
   }
 });
 
+
 app.put("/alerts/mark-all-viewed", async (req, res) => {
   try {
-    await Alert.updateMany({ viewed: false }, { $set: { viewed: true } });
-    res.json({ status: "success", message: "All alerts marked as viewed." });
+    const userId = req.body.userId;
+
+    if (!userId) {
+      return res.status(400).json({ status: "error", message: "User ID is required." });
+    }
+
+    await Alert.updateMany(
+      { viewedBy: { $ne: userId } }, // Select alerts not viewed by this user
+      { $addToSet: { viewedBy: userId } } // Add userId to viewedBy array
+    );
+
+    res.json({ status: "success", message: "All alerts marked as viewed by the user." });
   } catch (error) {
     console.error("Error marking all alerts as viewed:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 
 
 //นับความถี่อาการ
@@ -2633,9 +2647,23 @@ app.get("/searchassessment", async (req, res) => {
     const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
     const regex = new RegExp(escapeRegex(keyword), "i");
 
-    const users = await User.find({
-      $or: [{ name: { $regex: regex } }, { surname: { $regex: regex } }],
-    });
+    // รวมชื่อและนามสกุลเป็นฟิลด์เดียวชั่วคราวสำหรับการค้นหา
+    const users = await User.aggregate([
+      {
+        $addFields: {
+          fullname: { $concat: ["$name", " ", "$surname"] }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { name: { $regex: regex } },
+            { surname: { $regex: regex } },
+            { fullname: { $regex: regex } }
+          ]
+        }
+      }
+    ]);
 
     const medicalInfos = await MedicalInformation.find({
       $or: [
@@ -2709,13 +2737,28 @@ app.get("/searchuser", async (req, res) => {
     // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
 
-    const result = await User.find({
-      $or: [{ username: { $regex: regex } }, { surname: { $regex: regex } }, { name: { $regex: regex } }],
-    });
+    // รวมชื่อและนามสกุลเป็นฟิลด์เดียวชั่วคราวสำหรับการค้นหา
+    const result = await User.aggregate([
+      {
+        $addFields: {
+          fullname: { $concat: ["$name", " ", "$surname"] }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { username: { $regex: regex } },
+            { name: { $regex: regex } },
+            { surname: { $regex: regex } },
+            { fullname: { $regex: regex } }
+          ]
+        }
+      }
+    ]);
 
     res.json({ status: "ok", data: result });
   } catch (error) {
-    res.json({ status: error });
+    res.json({ status: error.message });
   }
 });
 
@@ -2846,12 +2889,20 @@ app.post("/updateuser/:id", async (req, res) => {
 // });
 
 app.post("/updatenameadmin/:id", async (req, res) => {
+<<<<<<< HEAD
   const { name, surname } = req.body;
+=======
+  const { name,surname } = req.body;
+>>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
+<<<<<<< HEAD
     await Admins.findByIdAndUpdate(id, { name, surname });
+=======
+    await Admins.findByIdAndUpdate(id, { name,surname  });
+>>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
 
     res
       .status(200)
@@ -3271,13 +3322,33 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 app.get("/searchuserchat", async (req, res) => {
   try {
+<<<<<<< HEAD
     const { keyword } = req.query;
+=======
+    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+>>>>>>> 3a2ad29668c654fb09b1fa73387b3ff8f804d06c
 
+    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
 
-    const result = await User.find({
-      $or: [{ surname: { $regex: regex } }, { name: { $regex: regex } }],
-    });
+    // รวมชื่อและนามสกุลเป็นฟิลด์เดียวชั่วคราวสำหรับการค้นหา
+    const result = await User.aggregate([
+      {
+        $addFields: {
+          fullname: { $concat: ["$name", " ", "$surname"] }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { username: { $regex: regex } },
+            { name: { $regex: regex } },
+            { surname: { $regex: regex } },
+            { fullname: { $regex: regex } }
+          ]
+        }
+      }
+    ]);
 
     res.json({ status: "ok", data: result });
   } catch (error) {
