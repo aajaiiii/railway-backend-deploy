@@ -5,11 +5,13 @@ const UserDetailsScehma = new mongoose.Schema(
   {
     username: { type: String, unique: true },
     name: String,
+    surname: String,
     email: { type: String, unique: true },
     password: String,
   },
   {
     collection: "Admin",
+    timestamps: true,
   }
 );
 
@@ -30,18 +32,18 @@ const equipmentScehma = new mongoose.Schema(
 mongoose.model("Equipment", equipmentScehma);
 
 const equipmentuserScehma = new mongoose.Schema(
-    {
-        equipmentname_forUser: String,
-        equipmenttype_forUser: String,
-        user: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-            
-        }
-    },
-    {
-        collection: "EquipmentUser",
+  {
+    equipmentname_forUser: String,
+    equipmenttype_forUser: String,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+
     }
+  },
+  {
+    collection: "EquipmentUser",
+  }
 );
 
 mongoose.model("EquipmentUser", equipmentuserScehma);
@@ -306,3 +308,87 @@ const UserThresholdSchema = new mongoose.Schema({
 });
 
 mongoose.model('UserThreshold', UserThresholdSchema);
+
+const AssessreadinessSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  Readiness1: {
+    question1_1: { type: String, required: true },
+    question1_2: { type: String, required: true },
+    question1_3: { type: String, required: true },
+    question1_4: { type: String, required: true },
+  },
+  Readiness2: {
+    Disease: { type: String, required: true },
+    Medication: { type: String, required: true },
+    Environment: { type: String, required: true },
+    Treatment: { type: String, required: true },
+    Health: { type: String, required: true },
+    Out_patient: { type: String, required: true },
+    Diet: { type: String, required: true },
+  },
+  status_name: String,
+  readiness_status: String,
+}, {
+  collection: 'Assessreadiness',
+  timestamps: true,
+});
+
+mongoose.model('Assessreadiness', AssessreadinessSchema);
+
+
+const ImmobilitySchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  pickUpFood: { type: Number, required: true },
+  cleanUp: { type: Number, required: true },
+  putOnClothes: { type: Number, required: true },
+  shower: { type: Number, required: true },
+  usingToilet: { type: Number, required: true },
+  getUp: { type: Number, required: true },
+  walkInside: { type: Number, required: true },
+  upDownStairs: { type: Number, required: true },
+  continenceUrine: { type: Number, required: true },
+  continenceStool: { type: Number, required: true },
+  walkOutside: { type: Number, required: true },
+  cooking: { type: Number, required: true },
+  householdChores: { type: Number, required: true },
+  shopping: { type: Number, required: true },
+  takingPublicTransportation: { type: Number, required: true },
+  takingMedicine: { type: Number, required: true },
+  totalScore: { type: Number, required: true }
+});
+
+mongoose.model('Immobility', ImmobilitySchema);
+
+
+const AssessinhomesssSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  Immobility: {
+    pickUpFood: { type: Number, required: true },
+    cleanUp: { type: Number, required: true },
+    putOnClothes: { type: Number, required: true },
+    shower: { type: Number, required: true },
+    usingToilet: { type: Number, required: true },
+    getUp: { type: Number, required: true },
+    walkInside: { type: Number, required: true },
+    upDownStairs: { type: Number, required: true },
+    continenceUrine: { type: Number, required: true },
+    continenceStool: { type: Number, required: true },
+    walkOutside: { type: Number, required: true },
+    cooking: { type: Number, required: true },
+    householdChores: { type: Number, required: true },
+    shopping: { type: Number, required: true },
+    takingPublicTransportation: { type: Number, required: true },
+    takingMedicine: { type: Number, required: true },
+    totalScore: { type: Number, required: true }
+  },
+  Nutrition: {
+
+  },
+  status_name: String,
+  inhome_status: String,
+}, {
+  collection: 'Assessinhomesss',
+  timestamps: true,
+});
+
+mongoose.model('Assessinhomesss', AssessinhomesssSchema);

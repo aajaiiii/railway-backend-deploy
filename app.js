@@ -15,7 +15,7 @@ app.use(cors());
 const { google } = require("googleapis");
 const axios = require('axios');
 const crypto = require('crypto');
-const refreshTokens = []; 
+const refreshTokens = [];
 
 
 const admin = require('firebase-admin');
@@ -65,9 +65,10 @@ const Assessment = mongoose.model("Assessment");
 const Chat = mongoose.model("Chat");
 const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
+const Assessreadiness = mongoose.model("Assessreadiness")
 
 app.post("/addadmin", async (req, res) => {
-  const { username, name, email, password, confirmPassword } = req.body;
+  const { username, name, surname, email, password, confirmPassword } = req.body;
   if (!username || !password || !email) {
     return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
   }
@@ -85,6 +86,7 @@ app.post("/addadmin", async (req, res) => {
     await Admins.create({
       username,
       name,
+      surname,
       email,
       password: encryptedPassword,
     });
@@ -624,11 +626,11 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
     let imageUrl = null;
     let fileUrl = null;
 
-    if (req.files['image']) { 
+    if (req.files['image']) {
       const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.files['image'][0].originalname; 
+      const fileName = Date.now() + '-' + req.files['image'][0].originalname;
       const file = bucket.file(fileName);
-      
+
       const fileStream = file.createWriteStream({
         metadata: {
           contentType: req.files['image'][0].mimetype
@@ -645,7 +647,7 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
 
         if (imageUrl && fileUrl) {
           try {
-            const newCare = new Caremanual({ 
+            const newCare = new Caremanual({
               caremanual_name,
               image: imageUrl,
               file: fileUrl,
@@ -664,11 +666,11 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
       fileStream.end(req.files['image'][0].buffer);
     }
 
-    if (req.files['file']) { 
+    if (req.files['file']) {
       const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.files['file'][0].originalname; 
+      const fileName = Date.now() + '-' + req.files['file'][0].originalname;
       const file = bucket.file(fileName);
-      
+
       const fileStream = file.createWriteStream({
         metadata: {
           contentType: req.files['file'][0].mimetype
@@ -677,7 +679,7 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
 
       fileStream.on('error', (err) => {
         console.error('Error uploading file:', err);
-        res.status(500).json({ success: false  ,status: "ok" , message: 'Error uploading file' });
+        res.status(500).json({ success: false, status: "ok", message: 'Error uploading file' });
       });
 
       fileStream.on('finish', async () => {
@@ -685,7 +687,7 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
 
         if (imageUrl && fileUrl) {
           try {
-            const newCare = new Caremanual({ 
+            const newCare = new Caremanual({
               caremanual_name,
               image: imageUrl,
               file: fileUrl,
@@ -693,7 +695,7 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
             });
 
             await newCare.save();
-            res.json({ success: true,status: "ok" , message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
+            res.json({ success: true, status: "ok", message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
           } catch (error) {
             console.error('Error saving care manual:', error);
             res.status(500).json({ success: false, message: 'Error saving care manual' });
@@ -971,7 +973,7 @@ app.delete("/deleteCaremanual/:id", async (req, res) => {
 //     let imagename = "";
 //     let filename = "";
 
-    
+
 //     if (req.files["image"] && req.files["image"][0]) {
 //       imagename = req.files["image"][0].filename;
 //     }
@@ -1487,7 +1489,7 @@ app.get("/searchadmin", async (req, res) => {
 
 //ไปอัปเดตอันที่เคยลบไป
 app.post("/adduser", async (req, res) => {
-  const { username, name, surname, tel, email, physicalTherapy } = req.body; 
+  const { username, name, surname, tel, email, physicalTherapy } = req.body;
 
   if (!username || !tel || !name || !surname) {
     return res.json({
@@ -1511,7 +1513,7 @@ app.post("/adduser", async (req, res) => {
       oldUser.password = encryptedPassword;
       oldUser.tel = tel;
       oldUser.deletedAt = null;
-      oldUser.email = email || null;  
+      oldUser.email = email || null;
       oldUser.physicalTherapy = physicalTherapy || false;
       user = await oldUser.save();
     } else {
@@ -1523,7 +1525,7 @@ app.post("/adduser", async (req, res) => {
         tel,
         ID_card_number: username,
         email: email || null,
-        physicalTherapy: physicalTherapy || false, 
+        physicalTherapy: physicalTherapy || false,
       });
     }
 
@@ -1901,7 +1903,7 @@ app.post("/updateuserinfo/:id", async (req, res) => {
     ID_card_number,
     nationality,
     Address,
-    user, 
+    user,
     caregiverName,
     caregiverSurname,
     caregiverTel,
@@ -2287,16 +2289,16 @@ app.get("/countSymptoms/:userId/:formId", async (req, res) => {
   const { userId, formId } = req.params;
   try {
     const symptomsCount = await PatientForm.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           user: new mongoose.Types.ObjectId(userId),
           _id: { $lte: new mongoose.Types.ObjectId(formId) } // นับรวมถึงเอกสารที่ระบุ
         }
       },
       { $unwind: "$Symptoms" },
       { $group: { _id: "$Symptoms", count: { $sum: 1 } } },
-      { $sort: { count: -1 } } 
-      
+      { $sort: { count: -1 } }
+
     ]);
 
     res.send({ status: "ok", symptomsCount });
@@ -2580,11 +2582,11 @@ app.get("/getRespirationData/:userId/:formId", async (req, res) => {
       .populate('user')
       .sort({ createdAt: -1 });
 
-    const  RespirationData = patientForms.map(form => ({ 
-      name: form.user.name, 
+    const RespirationData = patientForms.map(form => ({
+      name: form.user.name,
       Respiration: form.Respiration,
-      createdAt: form.createdAt 
-    })).reverse(); 
+      createdAt: form.createdAt
+    })).reverse();
 
     res.send({ status: "ok", data: RespirationData });
   } catch (error) {
@@ -2844,12 +2846,12 @@ app.post("/updateuser/:id", async (req, res) => {
 // });
 
 app.post("/updatenameadmin/:id", async (req, res) => {
-  const { name } = req.body;
+  const { name, surname } = req.body;
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await Admins.findByIdAndUpdate(id, { name });
+    await Admins.findByIdAndUpdate(id, { name, surname });
 
     res
       .status(200)
@@ -3269,7 +3271,7 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 app.get("/searchuserchat", async (req, res) => {
   try {
-    const { keyword } = req.query; 
+    const { keyword } = req.query;
 
     const regex = new RegExp(escapeRegex(keyword), "i");
 
@@ -3306,18 +3308,18 @@ app.post('/chat', uploadimg.single('image'), async (req, res) => {
     if (!recipient) {
       return res.status(404).json({ success: false, message: 'Recipient not found' });
     }
-    
+
     if (!sender) {
       return res.status(404).json({ success: false, message: 'Sender not found' });
     }
 
-    let imageUrl; 
+    let imageUrl;
 
-    if (req.file) { 
+    if (req.file) {
       const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.file.originalname; 
+      const fileName = Date.now() + '-' + req.file.originalname;
       const file = bucket.file(fileName);
-      
+
       const fileStream = file.createWriteStream({
         metadata: {
           contentType: req.file.mimetype
@@ -3334,32 +3336,32 @@ app.post('/chat', uploadimg.single('image'), async (req, res) => {
         imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
 
         // imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        const newChat = new Chat({ 
-          message, 
+        const newChat = new Chat({
+          message,
           image: imageUrl,
-          recipient: recipient._id, 
+          recipient: recipient._id,
           sender: sender._id,
           recipientModel,
           senderModel
         });
-        
+
         await newChat.save();
-        
+
         res.json({ success: true, message: 'Chat message with image saved', imageUrl }); // ส่ง URL ของภาพกลับไป
       });
 
       fileStream.end(req.file.buffer); // เขียนข้อมูลของภาพไปยัง Cloud Storage
     } else {
-      const newChat = new Chat({ 
-        message, 
-        recipient: recipient._id, 
+      const newChat = new Chat({
+        message,
+        recipient: recipient._id,
         sender: sender._id,
         recipientModel,
         senderModel
       });
-      
+
       await newChat.save();
-      
+
       res.json({ success: true, message: 'Chat message without image saved' });
     }
   } catch (error) {
@@ -3378,8 +3380,8 @@ app.get('/chat/:recipientId/:recipientModel/:senderId/:senderModel', async (req,
         { recipient: senderId, recipientModel: senderModel, sender: recipientId, senderModel: recipientModel }
       ]
     })
-    .populate('recipient')
-    .populate('sender');
+      .populate('recipient')
+      .populate('sender');
 
     res.json({ success: true, chats: recipientChats });
 
@@ -3397,7 +3399,7 @@ app.get('/chat/:recipientId/:recipientModel/:senderId/:senderModel', async (req,
 
 app.get('/alluserchat', async (req, res) => {
   try {
-    const userId = req.query.userId; 
+    const userId = req.query.userId;
     const users = await User.find({ deletedAt: null }).lean();
 
     const usersWithLastMessage = await Promise.all(
@@ -3412,7 +3414,7 @@ app.get('/alluserchat', async (req, res) => {
             select: 'name',
           })
           .lean();
-        
+
         const unreadCount = await Chat.countDocuments({
           recipient: userId,
           sender: user._id,
@@ -3432,20 +3434,20 @@ app.get('/alluserchat', async (req, res) => {
 app.get('/lastmessage/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const loginUserId = req.query.loginUserId; 
+    const loginUserId = req.query.loginUserId;
     const lastMessage = await Chat.findOne({
       $or: [
         { sender: userId, recipient: loginUserId },
         { sender: loginUserId, recipient: userId }
       ]
     })
-    .sort({ createdAt: -1 })
-    .select('message createdAt sender senderModel isRead recipient image')
-    .populate({
-      path: 'sender recipient',
-      select: 'name',
-    })
-    .lean();
+      .sort({ createdAt: -1 })
+      .select('message createdAt sender senderModel isRead recipient image')
+      .populate({
+        path: 'sender recipient',
+        select: 'name',
+      })
+      .lean();
 
     res.json({ lastMessage: lastMessage ? lastMessage : null });
   } catch (error) {
@@ -3457,7 +3459,7 @@ app.get('/lastmessage/:userId', async (req, res) => {
 //รายชื่อ chat หมอ ที่ฝั่งผู้ป่วย
 app.get("/allMpersonnelchat1", async (req, res) => {
   try {
-    const userId = req.query.userId; 
+    const userId = req.query.userId;
     const allMpersonnel = await MPersonnel.find({}).lean();
 
     const usersWithLastMessage = await Promise.all(
@@ -3472,7 +3474,7 @@ app.get("/allMpersonnelchat1", async (req, res) => {
             select: 'name',
           })
           .lean();
-        
+
         const unreadCount = await Chat.countDocuments({
           recipient: userId,
           sender: user._id,
@@ -3502,7 +3504,76 @@ app.get("/diagnosis-count", async (req, res) => {
 
     res.json({ status: "ok", data: diagnosisCounts });
   } catch (error) {
-    console.error("Error counting diagnosis:", error); 
+    console.error("Error counting diagnosis:", error);
     res.json({ status: "error", message: "เกิดข้อผิดพลาดขณะนับ Diagnosis" });
+  }
+});
+
+//ประเมินความพร้อม
+app.post('/submitAssessreadiness/:id', async (req, res) => {
+  const { userId, Readiness1, Readiness2, status_name } = req.body;
+
+  try {
+    const newAssessreadiness = new Assessreadiness({
+      user: userId,
+      Readiness1,
+      Readiness2,
+      status_name,
+    });
+    await newAssessreadiness.save();
+    res.status(201).json({ success: true, message: 'Assessreadiness saved successfully' });
+  } catch (error) {
+    console.error('Error saving Assessreadiness:', error);
+    res.status(500).json({ success: false, message: 'Error saving Assessreadiness' });
+  }
+});
+
+app.get('/getAssessreadiness/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const assessreadinesses = await Assessreadiness.find({ user: userId });
+
+    if (!assessreadinesses || assessreadinesses.length === 0) {
+      return res.status(404).json({ success: false, message: 'No assessments found' });
+    }
+
+    const assessreadinessData = assessreadinesses.map(assessreadiness => ({
+      Readiness1: assessreadiness.Readiness1,
+      Readiness2: assessreadiness.Readiness2,
+      status_name: assessreadiness.status_name,
+      readiness_status: assessreadiness.readiness_status,
+    }));
+
+    res.status(200).json({ success: true, data: assessreadinessData });
+  } catch (error) {
+    console.error('Error retrieving assessments:', error);
+    res.status(500).json({ success: false, message: 'Error retrieving assessments' });
+  }
+});
+
+app.get('/getUserAssessreadiness/:id', async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const assessreadiness = await Assessreadiness.findOne({ user: userId }).select('status_name');
+    if (assessreadiness) {
+      res.status(200).json({ success: true, status_name: assessreadiness.status_name });
+    } else {
+      res.status(404).json({ success: false, message: 'Assessreadiness not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching assessreadiness:', error);
+    res.status(500).json({ success: false, message: 'Error fetching assessreadiness' });
+  }
+});
+
+
+// Example in Express.js
+app.get('/completedAssessmentsCount', async (req, res) => {
+  try {
+      const completedCount = await Assessment.countDocuments({ status_name: "จบการรักษา" });
+      res.json({ count: completedCount });
+  } catch (error) {
+      res.status(500).json({ error: 'Error fetching completed assessments count' });
   }
 });
