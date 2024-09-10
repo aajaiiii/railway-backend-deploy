@@ -166,7 +166,7 @@ const MedicalInformationSchema = new mongoose.Schema(
 );
 mongoose.model("MedicalInformation", MedicalInformationSchema);
 
-//ฟแร์มบันทึกอาการ
+//ฟอร์มบันทึกอาการ
 const PatientFormSchema = new mongoose.Schema(
   {
     Symptoms: [String], 
@@ -213,6 +213,7 @@ const AssessmentScehma = new mongoose.Schema(
 
 mongoose.model("Assessment", AssessmentScehma);
 
+
 const chatSchema = new mongoose.Schema(
   {
     message: String,
@@ -248,6 +249,7 @@ const chatSchema = new mongoose.Schema(
 );
 
 mongoose.model("Chat", chatSchema);
+
 
 
 const AlertSchema = new mongoose.Schema(

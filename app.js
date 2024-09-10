@@ -105,7 +105,7 @@ app.post("/login", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: '30d',
+      expiresIn: '7d',
     });
 
     if (res.status(201)) {
@@ -589,17 +589,30 @@ const upload = multer({ storage: storage }).fields([
 //   }
 // });
 
-app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
+app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
   const { caremanual_name, detail } = req.body;
 
+  // ตรวจสอบว่ามีการส่งชื่อหัวข้อหรือไม่
   if (!caremanual_name) {
-    return res.json({ error: "กรุณากรอกหัวข้อ และเลือกรูปภาพ" });
+    return res.status(400).json({ error: "กรุณากรอกหัวข้อ" });
+  }
+
+  // ตรวจสอบว่ามีการอัปโหลดรูปภาพหรือไม่
+  if (!req.files['image']) {
+    return res.status(400).json({ error: "กรุณาเลือกรูปภาพ" });
   }
 
   try {
+    // ตรวจสอบชื่อหัวข้อว่ามีอยู่แล้วหรือไม่
+    const existingCareManual = await Caremanual.findOne({ caremanual_name });
+    if (existingCareManual) {
+      return res.status(400).json({ error: "หัวข้อนี้มีอยู่แล้ว กรุณาใช้หัวข้ออื่น" });
+    }
+
     let imageUrl = null;
     let fileUrl = null;
 
+    // อัปโหลดรูปภาพ
     if (req.files['image']) {
       const bucket = admin.storage().bucket();
       const fileName = Date.now() + '-' + req.files['image'][0].originalname;
@@ -613,26 +626,27 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
 
       fileStream.on('error', (err) => {
         console.error('Error uploading image:', err);
-        res.status(500).json({ success: false, message: 'Error uploading image' });
+        return res.status(500).json({ success: false, message: 'Error uploading image' });
       });
 
       fileStream.on('finish', async () => {
         imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
 
-        if (imageUrl && fileUrl) {
+        // ตรวจสอบว่าอย่างน้อยมี imageUrl เพื่อบันทึกข้อมูล
+        if (imageUrl || fileUrl) {
           try {
             const newCare = new Caremanual({
               caremanual_name,
               image: imageUrl,
-              file: fileUrl,
+              file: fileUrl, // อาจเป็นค่าว่างได้
               detail,
             });
 
             await newCare.save();
-            res.json({ success: true, message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
+            return res.json({ status: "ok", success: true, message: 'Care manual saved', imageUrl, fileUrl });
           } catch (error) {
             console.error('Error saving care manual:', error);
-            res.status(500).json({ success: false, message: 'Error saving care manual' });
+            return res.status(500).json({ success: false, message: 'Error saving care manual' });
           }
         }
       });
@@ -640,6 +654,7 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
       fileStream.end(req.files['image'][0].buffer);
     }
 
+    // อัปโหลดไฟล์ (ถ้ามี)
     if (req.files['file']) {
       const bucket = admin.storage().bucket();
       const fileName = Date.now() + '-' + req.files['file'][0].originalname;
@@ -653,38 +668,39 @@ app.post("/addcaremanual", uploadimg.fields([{ name: 'image' }, { name: 'file' }
 
       fileStream.on('error', (err) => {
         console.error('Error uploading file:', err);
-        res.status(500).json({ success: false, status: "ok", message: 'Error uploading file' });
+        return res.status(500).json({ success: false, message: 'Error uploading file' });
       });
 
       fileStream.on('finish', async () => {
         fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
 
-        if (imageUrl && fileUrl) {
+        // ตรวจสอบว่าอย่างน้อยมี imageUrl เพื่อบันทึกข้อมูล
+        if (imageUrl || fileUrl) {
           try {
             const newCare = new Caremanual({
               caremanual_name,
               image: imageUrl,
-              file: fileUrl,
+              file: fileUrl, // อาจเป็นค่าว่างได้
               detail,
             });
 
             await newCare.save();
-            res.json({ success: true, status: "ok", message: 'Care manual saved', imageUrl, fileUrl }); // ส่ง URL ของภาพและไฟล์กลับไป
+            return res.json({ status: "ok", success: true, message: 'Care manual saved', imageUrl, fileUrl });
           } catch (error) {
             console.error('Error saving care manual:', error);
-            res.status(500).json({ success: false, message: 'Error saving care manual' });
+            return res.status(500).json({ success: false, message: 'Error saving care manual' });
           }
         }
       });
 
       fileStream.end(req.files['file'][0].buffer);
     }
+
   } catch (error) {
     console.error('Error processing request:', error);
-    res.status(500).json({ success: false, message: 'Error processing request' });
+    return res.status(500).json({ success: false, message: 'Error processing request' });
   }
 });
-
 
 
 
@@ -1822,7 +1838,8 @@ app.post('/forgot-passworduser', async (req, res) => {
   }
 
   const otp = crypto.randomBytes(3).toString('hex');
-  const otpExpiration = Date.now() + 3600000; // 1 hour expiration
+  const otpExpiration = Date.now() + 300000; 
+
 
   user.otp = otp;
   user.otpExpiration = otpExpiration;
@@ -1845,7 +1862,7 @@ app.post('/forgot-passworduser', async (req, res) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      return res.status(500).send('Error sending email');
+      return res.status(500).send('ไม่สามารถส่งรหัส OTP ได้');
     }
     res.send('OTP sent');
   });
@@ -1856,10 +1873,10 @@ app.post('/verify-otp', async (req, res) => {
 
   const user = await User.findOne({ email, otp, otpExpiration: { $gt: Date.now() } });
   if (!user) {
-    return res.status(400).send('Invalid OTP or OTP expired');
+    return res.status(400).send('รหัส OTP หมดอายุ');
   }
 
-  res.send('OTP verified');
+  res.send('ส่งรหัส OTP แล้ว');
 });
 
 app.post('/reset-password', async (req, res) => {
@@ -2243,6 +2260,127 @@ app.post("/addpatientform", async (req, res) => {
   }
 });
 
+
+app.get("/getpatientform/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const patientForm = await PatientForm.findById(id).exec();
+    if (!patientForm) {
+      return res.status(404).send({ status: "error", message: "Patient form not found" });
+    }
+
+    res.send({ status: "ok", patientForm });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ status: "error", message: error.message });
+  }
+});
+
+
+app.put("/updatepatientform/:id", async (req, res) => {
+  const {
+    Symptoms,
+    SBP,
+    DBP,
+    PulseRate,
+    Temperature,
+    DTX,
+    Respiration,
+    LevelSymptom,
+    Painscore,
+    request_detail,
+    Recorder,
+    user
+  } = req.body;
+
+  const { id } = req.params;
+
+  try {
+    const updatedFields = {
+      Symptoms,
+      SBP: SBP !== '' ? SBP : null,
+      DBP: DBP !== '' ? DBP : null,
+      PulseRate: PulseRate !== '' ? PulseRate : null,
+      Temperature: Temperature !== '' ? Temperature : null,
+      DTX: DTX !== '' ? DTX : null,
+      Respiration: Respiration !== '' ? Respiration : null,
+      LevelSymptom,
+      Painscore,
+      request_detail,
+      Recorder,
+      user,
+    };
+
+    Object.keys(updatedFields).forEach(key => updatedFields[key] === undefined && delete updatedFields[key]);
+
+    const patientForm = await PatientForm.findByIdAndUpdate(id, updatedFields, { new: true });
+
+    if (!patientForm) {
+      return res.status(404).send({ status: "error", message: "Patient form not found" });
+    }
+
+    const userThreshold = await UserThreshold.findOne({ user });
+    const thresholds = userThreshold || threshold;
+
+    let alerts = [];
+
+    const isString = value => typeof value === 'string';
+
+    if (SBP && isString(SBP) && SBP.trim() !== '') {
+      const SBPValue = parseFloat(SBP);
+      if (SBPValue < thresholds.SBP.min || SBPValue > thresholds.SBP.max) {
+        alerts.push("ความดันตัวบน");
+      }
+    }
+
+    if (DBP && isString(DBP) && DBP.trim() !== '') {
+      const DBPValue = parseFloat(DBP);
+      if (DBPValue < thresholds.DBP.min || DBPValue > thresholds.DBP.max) {
+        alerts.push("ความดันตัวล่าง");
+      }
+    }
+
+    if (PulseRate && isString(PulseRate) && PulseRate.trim() !== '') {
+      const PulseRateValue = parseFloat(PulseRate);
+      if (PulseRateValue < thresholds.PulseRate.min || PulseRateValue > thresholds.PulseRate.max) {
+        alerts.push("ชีพจร");
+      }
+    }
+
+    if (Temperature && isString(Temperature) && Temperature.trim() !== '') {
+      const TemperatureValue = parseFloat(Temperature);
+      if (TemperatureValue < thresholds.Temperature.min || TemperatureValue > thresholds.Temperature.max) {
+        alerts.push("อุณหภูมิ");
+      }
+    }
+
+    if (DTX && isString(DTX) && DTX.trim() !== '') {
+      const DTXValue = parseFloat(DTX);
+      if (DTXValue < thresholds.DTX.min || DTXValue > thresholds.DTX.max) {
+        alerts.push("ระดับน้ำตาลในเลือด");
+      }
+    }
+
+    if (Respiration && isString(Respiration) && Respiration.trim() !== '') {
+      const RespirationValue = parseFloat(Respiration);
+      if (RespirationValue < thresholds.Respiration.min || RespirationValue > thresholds.Respiration.max) {
+        alerts.push("การหายใจ");
+      }
+    }
+
+    if (alerts.length > 0) {
+      const alertMessage = `มีการแก้ไขการบันทึก แล้วค่า ${alerts.join(', ')} มีความผิดปกติ`;
+      await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
+    }
+
+    res.send({ status: "ok", patientForm });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ status: "error", message: error.message });
+  }
+});
+
 app.get("/alerts", async (req, res) => {
   try {
     const alerts = await Alert.find().populate('user', 'name surname').sort({ createdAt: -1 });
@@ -2302,7 +2440,7 @@ app.get("/countSymptoms/:userId/:formId", async (req, res) => {
       {
         $match: {
           user: new mongoose.Types.ObjectId(userId),
-          _id: { $lte: new mongoose.Types.ObjectId(formId) } // นับรวมถึงเอกสารที่ระบุ
+          _id: { $lte: new mongoose.Types.ObjectId(formId) } // นับรวมถึงอันที่เข้ามา ถ้าไม่นับ lt
         }
       },
       { $unwind: "$Symptoms" },
@@ -2604,23 +2742,110 @@ app.get("/getRespirationData/:userId/:formId", async (req, res) => {
     res.send({ status: "error" });
   }
 });
-//ประเมิน
+//ประเมิน แบบไม่แจ้งเตือน
+// app.post("/addassessment", async (req, res) => {
+//   const { suggestion, detail, status_name, PPS, MPersonnel, PatientForm } = req.body;
+//   try {
+//     await Assessment.create({
+//       suggestion, detail, status_name, PPS, MPersonnel, PatientForm,
+//     });
+//     res.send({ status: "ok" });
+//   } catch (error) {
+//     if (error.code === 11000 && error.keyPattern.PatientForm) {
+//       res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
+//     } else {
+//       console.error(error);
+//       res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
+//     }
+//   }
+// });
+
+//แบบไม่มีชื่อผู้ประเมิน
 app.post("/addassessment", async (req, res) => {
-  const { suggestion, detail, status_name, PPS, MPersonnel, PatientForm } = req.body;
+  const { suggestion, detail, status_name, PPS, MPersonnel, PatientForm: patientFormId } = req.body;
+
   try {
+    const patientForm = await PatientForm.findById(patientFormId).populate('user').exec();
+
+    if (!patientForm) {
+      return res.status(404).send({ status: "error", message: "PatientForm not found." });
+    }
+
+    if (status_name === 'เคสฉุกเฉิน') {
+      const alertMessage = `เป็นเคสฉุกเฉิน`;
+
+      await Alert.create({
+        patientFormId: patientForm._id,
+        alertMessage,
+        user: patientForm.user._id 
+      });
+    }
+
     await Assessment.create({
-      suggestion, detail, status_name, PPS, MPersonnel, PatientForm,
+      suggestion, detail, status_name, PPS, MPersonnel, PatientForm: patientForm._id,
     });
+
     res.send({ status: "ok" });
   } catch (error) {
+    console.error("Error:", error);
     if (error.code === 11000 && error.keyPattern.PatientForm) {
       res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
     } else {
-      console.error(error);
       res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
     }
   }
 });
+// แบบมีชื่อผู้ประเมิน
+// app.post("/addassessment", async (req, res) => {
+//   const { suggestion, detail, status_name, PPS, MPersonnel: mPersonnelId, PatientForm: patientFormId } = req.body;
+
+//   try {
+//     const patientForm = await PatientForm.findById(patientFormId).populate('user').exec();
+
+//     if (!patientForm) {
+//       return res.status(404).send({ status: "error", message: "PatientForm not found." });
+//     }
+
+//     const mPersonnel = await MPersonnel.findById(mPersonnelId).exec();
+
+//     if (!mPersonnel) {
+//       return res.status(404).send({ status: "error", message: "MPersonnel not found." });
+//     }
+
+//     // Prepare the alert message including MPersonnel name
+//     if (status_name === 'เคสฉุกเฉิน') {
+//       const alertMessage = `เป็นเคสฉุกเฉิน\n
+//       ผู้ประเมิน: ${mPersonnel.nametitle}${mPersonnel.name} ${mPersonnel.surname}`;
+
+//       await Alert.create({
+//         patientFormId: patientForm._id,
+//         alertMessage,
+//         user: patientForm.user._id 
+//       });
+//     }
+
+//     await Assessment.create({
+//       suggestion,
+//       detail,
+//       status_name,
+//       PPS,
+//       MPersonnel: mPersonnel._id, 
+//       PatientForm: patientForm._id,
+//     });
+
+//     res.send({ status: "ok" });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     if (error.code === 11000 && error.keyPattern.PatientForm) {
+//       res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
+//     } else {
+//       res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
+//     }
+//   }
+// });
+
+
+
 
 // app.get("/searchassessment", async (req, res) => {
 //   try {
@@ -2723,6 +2948,20 @@ app.get("/allAssessments", async (req, res) => {
     console.log(error);
   }
 });
+
+// เเอาไปเช็คว่าจบการรักษายัง
+app.get('/assessments', async (req, res) => {
+  try {
+    const { patientFormIds } = req.query;
+    const assessments = await Assessment.find({
+      PatientForm: { $in: patientFormIds }
+    }).populate('PatientForm');
+    res.json({ data: assessments });
+  } catch (error) {
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูล Assessments' });
+  }
+});
+
 
 // --------------------------
 //ค้นหาผู้ป่วย
@@ -3310,12 +3549,10 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 app.get("/searchuserchat", async (req, res) => {
   try {
-    const { keyword } = req.query; // เรียกใช้ keyword ที่ส่งมาจาก query parameters
+    const { keyword } = req.query; 
 
-    // ใช้ regex เพื่อค้นหาคำหลักในชื่อของคู่มือ
     const regex = new RegExp(escapeRegex(keyword), "i");
 
-    // รวมชื่อและนามสกุลเป็นฟิลด์เดียวชั่วคราวสำหรับการค้นหา
     const result = await User.aggregate([
       {
         $addFields: {
@@ -3385,12 +3622,10 @@ app.post('/chat', uploadimg.single('image'), async (req, res) => {
         console.error('Error uploading image:', err);
         res.status(500).json({ success: false, message: 'Error uploading image' });
       });
-      // {bucket-name}/o/{file-name}?alt=media&token={access-token}
 
       fileStream.on('finish', async () => {
         imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
 
-        // imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
         const newChat = new Chat({
           message,
           image: imageUrl,
@@ -3402,10 +3637,10 @@ app.post('/chat', uploadimg.single('image'), async (req, res) => {
 
         await newChat.save();
 
-        res.json({ success: true, message: 'Chat message with image saved', imageUrl }); // ส่ง URL ของภาพกลับไป
+        res.json({ success: true, message: 'Chat message with image saved', imageUrl }); 
       });
 
-      fileStream.end(req.file.buffer); // เขียนข้อมูลของภาพไปยัง Cloud Storage
+      fileStream.end(req.file.buffer); 
     } else {
       const newChat = new Chat({
         message,
