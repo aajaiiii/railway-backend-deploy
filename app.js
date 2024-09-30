@@ -11,13 +11,24 @@ var nodemailer = require("nodemailer");
 const randomstring = require("randomstring");
 const slugify = require("slugify");
 const cors = require("cors");
-app.use(cors());
+
 const { google } = require("googleapis");
 const axios = require('axios');
 const crypto = require('crypto');
 const refreshTokens = [];
 
-
+const http = require('http');
+const socketIo = require('socket.io');
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: ["http://localhost:3000", "http://192.168.2.57:8081"], // ให้แน่ใจว่าใส่ URL ของ front-end app
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+    credentials: true,
+  }
+});
+app.use(cors());
 const admin = require('firebase-admin');
 const serviceAccount = require('./sdk/homeward-422311-firebase-adminsdk-sd9ly-3a629477d2.json');
 const multerr = require('multer');
@@ -30,9 +41,7 @@ const JWT_REFRESH_SECRET = 'hvdvay6ert72eerr839289()aiyg8t87qt724tyty393293883uh
 
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe";
-app.listen(5000, () => {
-  console.log("Server Started");
-});
+
 
 const mongoUrl =
   "mongodb+srv://sasithornsorn:Sasi12345678@cluster0.faewtst.mongodb.net/?retryWrites=true&w=majority";
@@ -66,6 +75,7 @@ const Chat = mongoose.model("Chat");
 const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
 const Assessreadiness = mongoose.model("Assessreadiness")
+const OTPModel = mongoose.model("OTPModel")
 
 app.post("/addadmin", async (req, res) => {
   const { username, name,surname, email, password, confirmPassword } = req.body;
@@ -95,6 +105,286 @@ app.post("/addadmin", async (req, res) => {
     res.send({ status: "error" });
   }
 });
+
+app.post('/send-otp1', async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    // ตรวจสอบว่ามีอีเมลหรือไม่
+    if (!username || !email) {
+      return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
+    }
+
+   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+   const existingUser = await mongoose.model('Admin').findOne({ email });
+   if (existingUser && existingUser.isEmailVerified) {
+     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+   }
+
+    // สร้าง OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await OTPModel.updateOne({ username }, { otp }, { upsert: true });
+
+    // ตั้งค่าการส่งอีเมล
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: "oysasitorn@gmail.com",
+        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+      },
+    });
+
+    const mailOptions = {
+      from: 'oysasitorn@gmail.com',
+      to: email,
+      subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
+      text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
+    };
+
+    // ส่งอีเมล
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending mail:', error);
+        return res.status(500).json({ error: 'Error sending OTP' });
+      }
+      res.status(200).json({ success: true, message: 'OTP sent' });
+    });
+  } catch (error) {
+    console.error('Error during OTP creation:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.post('/verify-otp1', async (req, res) => {
+  try {
+    const { username, otp, newEmail } = req.body;
+
+    const otpRecord = await OTPModel.findOne({ username }).sort({ createdAt: -1 });
+
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'OTP not found' });
+    }
+
+    const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
+
+    if (!isOtpValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // อัปเดตสถานะการยืนยันอีเมลและอีเมลของผู้ใช้ โดยใช้ username แทน email
+    await Admins.updateOne({ username }, { $set: { isEmailVerified: true, email: newEmail } });
+
+    // ลบ OTP หลังจากการยืนยันเสร็จสมบูรณ์
+    await OTPModel.deleteMany({ username });
+
+    res.status(200).json({ success: true, message: 'Email verified and updated successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// ยืนยัน/เปลี่ยนอีเมล แพทย์
+app.post('/send-otp2', async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    // ตรวจสอบว่ามีอีเมลหรือไม่
+    if (!username || !email) {
+      return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
+    }
+
+   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+   const existingUser = await mongoose.model('MPersonnel').findOne({ email });
+   if (existingUser && existingUser.isEmailVerified) {
+     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+   }
+
+    // สร้าง OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await OTPModel.updateOne({ username }, { otp }, { upsert: true });
+
+    // ตั้งค่าการส่งอีเมล
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: "oysasitorn@gmail.com",
+        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+      },
+    });
+
+    const mailOptions = {
+      from: 'oysasitorn@gmail.com',
+      to: email,
+      subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
+      text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
+    };
+
+    // ส่งอีเมล
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending mail:', error);
+        return res.status(500).json({ error: 'Error sending OTP' });
+      }
+      res.status(200).json({ success: true, message: 'OTP sent' });
+    });
+  } catch (error) {
+    console.error('Error during OTP creation:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.post('/verify-otp2', async (req, res) => {
+  try {
+    const { username, otp, newEmail } = req.body;
+
+    const otpRecord = await OTPModel.findOne({ username }).sort({ createdAt: -1 });
+
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'OTP not found' });
+    }
+
+    const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
+
+    if (!isOtpValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // อัปเดตสถานะการยืนยันอีเมลและอีเมลของผู้ใช้ โดยใช้ username แทน email
+    await MPersonnel.updateOne({ username }, { $set: { isEmailVerified: true, email: newEmail } });
+
+    // ลบ OTP หลังจากการยืนยันเสร็จสมบูรณ์
+    await OTPModel.deleteMany({ username });
+
+    res.status(200).json({ success: true, message: 'Email verified and updated successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// ยืนยัน/เปลี่ยนอีเมล ผู้ป่วย
+app.post('/send-otp3', async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    // ตรวจสอบว่ามีอีเมลหรือไม่
+    if (!username || !email) {
+      return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
+    }
+
+   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+   const existingUser = await mongoose.model('User').findOne({ email });
+   if (existingUser && existingUser.isEmailVerified) {
+     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+   }
+
+    // สร้าง OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await OTPModel.updateOne({ username }, { otp }, { upsert: true });
+
+    // ตั้งค่าการส่งอีเมล
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: "oysasitorn@gmail.com",
+        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+      },
+    });
+
+    const mailOptions = {
+      from: 'oysasitorn@gmail.com',
+      to: email,
+      subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
+      text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
+    };
+
+    // ส่งอีเมล
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending mail:', error);
+        return res.status(500).json({ error: 'Error sending OTP' });
+      }
+      res.status(200).json({ success: true, message: 'OTP sent' });
+    });
+  } catch (error) {
+    console.error('Error during OTP creation:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.post('/verify-otp3', async (req, res) => {
+  try {
+    const { username, otp, newEmail } = req.body;
+
+    const otpRecord = await OTPModel.findOne({ username }).sort({ createdAt: -1 });
+
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'OTP not found' });
+    }
+
+    const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
+
+    if (!isOtpValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // อัปเดตสถานะการยืนยันอีเมลและอีเมลของผู้ใช้ โดยใช้ username แทน email
+    await User.updateOne({ username }, { $set: { isEmailVerified: true, email: newEmail } });
+
+    // ลบ OTP หลังจากการยืนยันเสร็จสมบูรณ์
+    await OTPModel.deleteMany({ username });
+
+    res.status(200).json({ success: true, message: 'Email verified and updated successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// app.post('/verify-otp1', async (req, res) => {
+//   try {
+//     const { username, otp, newEmail } = req.body;
+
+//     // ตรวจสอบ OTP จากฐานข้อมูล
+//     const otpRecord = await OTPModel.findOne({ username }).sort({ createdAt: -1 });
+
+//     if (!otpRecord) {
+//       return res.status(400).json({ error: 'OTP not found' });
+//     }
+
+//     // ตรวจสอบความถูกต้องของ OTP และอายุ OTP
+//     const currentTime = Date.now();
+//     const otpCreationTime = new Date(otpRecord.createdAt).getTime(); // แปลงเป็น timestamp
+//     const isOtpValid = otpRecord.otp === otp && (currentTime - otpCreationTime) < 10 * 60 * 1000; // อายุ OTP 10 นาที
+
+//     if (!isOtpValid) {
+//       return res.status(400).json({ error: 'Invalid or expired OTP' });
+//     }
+
+//     // ตรวจสอบอีเมลใหม่ในฐานข้อมูล
+//     const existingUser = await Admins.findOne({ email: newEmail });
+//     if (existingUser) {
+//       return res.status(400).json({ error: 'อีเมลนี้มีผู้ใช้แล้ว' });
+//     }
+
+//     // อัปเดตสถานะการยืนยันอีเมลและอีเมลของผู้ใช้
+//     await Admins.updateOne({ username }, { $set: { isEmailVerified: true, email: newEmail } });
+
+//     // ลบ OTP หลังจากการยืนยันเสร็จสมบูรณ์
+//     await OTPModel.deleteMany({ username });
+
+//     res.status(200).json({ success: true, message: 'Email verified and updated successfully' });
+//   } catch (error) {
+//     console.error('Error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -445,37 +735,39 @@ app.get("/alladmin", async (req, res) => {
 
 //เพิ่มข้อมูลแพทย์
 app.post("/addmpersonnel", async (req, res) => {
-  const { username, password, email, confirmPassword, tel, nametitle, name, surname } =
-    req.body;
-  const encryptedPassword = await bcrypt.hash(password, 10);
-  if (!username || !password || !email || !name || !surname || !nametitle) {
+  const { username, email, tel, nametitle, name, surname } = req.body;
+  
+  // ใช้เบอร์โทรเป็นรหัสผ่าน
+  const encryptedPassword = await bcrypt.hash(tel, 10); 
+  
+  if (!username || !email || !tel || !name || !surname || !nametitle) {
     return res.json({
       error:
-        "กรุณากรอกเลขใบประกอบวิชาชีพ รหัสผ่าน อีเมล คำนำหน้าชื่อและชื่อ-นามสกุล",
+        "กรุณากรอกเลขใบประกอบวิชาชีพ อีเมล คำนำหน้าชื่อ เบอร์โทร และชื่อ-นามสกุล",
     });
   }
+
   try {
     const oldUser = await MPersonnel.findOne({ username });
-    //ชื่อมีในระบบไหม
+    
+    // ตรวจสอบว่าชื่อผู้ใช้นี้มีอยู่ในระบบแล้วหรือยัง
     if (oldUser) {
       return res.json({ error: "มีชื่อผู้ใช้นี้อยู่ในระบบแล้ว" });
     }
 
-    if (password !== confirmPassword) {
-      return res.json({ error: "รหัสผ่านไม่ตรงกัน" });
-    }
+    // สร้างผู้ใช้ใหม่
     await MPersonnel.create({
       username,
-      password: encryptedPassword,
+      password: encryptedPassword, // ใช้เบอร์โทรเป็นรหัสผ่านที่เข้ารหัสแล้ว
       email,
-      tel,
+      tel, // เก็บเบอร์โทรไว้ในฐานข้อมูล
       nametitle,
       name,
       surname,
     });
     res.send({ status: "ok" });
   } catch (error) {
-    res.send({ status: "error" });
+    res.send({ status: "error", error: error.message });
   }
 });
 
@@ -1685,19 +1977,6 @@ async function saveDataToMongoDB() {
 // });
 
 //แอป
-app.post("/userdata", async (req, res) => {
-  const { token } = req.body;
-  try {
-    const user = jwt.verify(token, JWT_SECRET);
-    const username = user.username;
-
-    User.findOne({ username: username }).then((data) => {
-      return res.send({ status: "Ok", data: data });
-    });
-  } catch (error) {
-    return res.send({ error: error });
-  }
-});
 
 // app.post("/userdata", async (req, res) => {
 //   const { token } = req.body;
@@ -1724,7 +2003,7 @@ app.post("/loginuser", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username:username });
 
     if (!user) {
       return res.status(404).json({ error: "ยังไม่มีบัญชีผู้ใช้นี้" });
@@ -1735,17 +2014,31 @@ app.post("/loginuser", async (req, res) => {
     }
 
     if (await bcrypt.compare(password, user.password)) {
-
-      const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-        expiresIn: "30d",
+      const token = jwt.sign({ username: user.username }, JWT_SECRET,{ expiresIn: "30d" });
+      return res.status(201).send({ 
+        status: "ok", 
+        data: token, 
+        addDataFirst: user.AdddataFirst ,
       });
-
-      return res.json({ status: "ok", data: { token, addDataFirst: user.AdddataFirst } });
     } else {
       return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" });
+  }
+});
+
+app.post("/userdata", async (req, res) => {
+  const { token } = req.body;
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    const username = user.username;
+
+    User.findOne({ username: username }).then((data) => {
+      return res.send({ status: "Ok", data: data });
+    });
+  } catch (error) {
+    return res.send({ error: error });
   }
 });
 
@@ -1837,7 +2130,7 @@ app.post('/forgot-passworduser', async (req, res) => {
     return res.status(400).send('User not found');
   }
 
-  const otp = crypto.randomBytes(3).toString('hex');
+  const otp = crypto.randomInt(100000, 999999).toString();
   const otpExpiration = Date.now() + 300000; 
 
 
@@ -1856,8 +2149,8 @@ app.post('/forgot-passworduser', async (req, res) => {
   const mailOptions = {
     from: "oysasitorn@gmail.com",
     to: user.email,
-    subject: 'Home Ward: OTP for Password Reset',
-    text: `Your OTP is ${otp}`,
+    subject: 'Homeward: รหัส OTP สำหรับเปลี่ยนรหัสผ่าน',
+    text: `รหัส OTP ของคุณคือ ${otp}\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -2065,7 +2358,7 @@ app.post("/updatepassuser", async (req, res) => {
 
   try {
     if (!username || !password || !newPassword || !confirmNewPassword) {
-      return res.status(400).send({ error: "Missing required fields" });
+      return res.status(400).send({ error: "กรุณากรอกรหัส" });
     }
 
     if (newPassword.trim() !== confirmNewPassword.trim()) {
@@ -2251,6 +2544,9 @@ app.post("/addpatientform", async (req, res) => {
     if (alerts.length > 0) {
       const alertMessage = `ค่า ${alerts.join(', ')} มีความผิดปกติ`;
       await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
+    
+      io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
+
     }
 
     res.send({ status: "ok", patientForm });
@@ -2372,6 +2668,9 @@ app.put("/updatepatientform/:id", async (req, res) => {
     if (alerts.length > 0) {
       const alertMessage = `มีการแก้ไขการบันทึก แล้วค่า ${alerts.join(', ')} มีความผิดปกติ`;
       await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
+      
+      io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
+
     }
 
     res.send({ status: "ok", patientForm });
@@ -3579,86 +3878,54 @@ app.get("/searchuserchat", async (req, res) => {
 
 
 
-app.post('/chat', uploadimg.single('image'), async (req, res) => {
+app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
   try {
     const { message, recipientId, senderId, recipientModel, senderModel } = req.body;
 
+    // Validate required fields
+    if (!message || !recipientId || !senderId || !recipientModel || !senderModel) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
     let recipient, sender;
 
-    if (recipientModel === 'User') {
-      recipient = await User.findById(recipientId);
-    } else if (recipientModel === 'MPersonnel') {
-      recipient = await MPersonnel.findById(recipientId);
-    }
+    // Find recipient
+    recipient = recipientModel === 'User' 
+      ? await User.findById(recipientId) 
+      : await MPersonnel.findById(recipientId);
+      
+    // Find sender
+    sender = senderModel === 'User' 
+      ? await User.findById(senderId) 
+      : await MPersonnel.findById(senderId);
 
-    if (senderModel === 'User') {
-      sender = await User.findById(senderId);
-    } else if (senderModel === 'MPersonnel') {
-      sender = await MPersonnel.findById(senderId);
-    }
-
-    if (!recipient) {
-      return res.status(404).json({ success: false, message: 'Recipient not found' });
-    }
-
-    if (!sender) {
-      return res.status(404).json({ success: false, message: 'Sender not found' });
+    if (!recipient || !sender) {
+      return res.status(404).json({ success: false, message: 'Sender or recipient not found' });
     }
 
     let imageUrl;
 
     if (req.file) {
-      const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.file.originalname;
-      const file = bucket.file(fileName);
-
-      const fileStream = file.createWriteStream({
-        metadata: {
-          contentType: req.file.mimetype
-        }
-      });
-
-      fileStream.on('error', (err) => {
-        console.error('Error uploading image:', err);
-        res.status(500).json({ success: false, message: 'Error uploading image' });
-      });
-
-      fileStream.on('finish', async () => {
-        imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
-
-        const newChat = new Chat({
-          message,
-          image: imageUrl,
-          recipient: recipient._id,
-          sender: sender._id,
-          recipientModel,
-          senderModel
-        });
-
-        await newChat.save();
-
-        res.json({ success: true, message: 'Chat message with image saved', imageUrl }); 
-      });
-
-      fileStream.end(req.file.buffer); 
-    } else {
-      const newChat = new Chat({
-        message,
-        recipient: recipient._id,
-        sender: sender._id,
-        recipientModel,
-        senderModel
-      });
-
-      await newChat.save();
-
-      res.json({ success: true, message: 'Chat message without image saved' });
+      imageUrl = await uploadImage(req.file);
     }
+
+    const newChat = new Chat({
+      message,
+      image: imageUrl || undefined,
+      recipient: recipient._id,
+      sender: sender._id,
+      recipientModel,
+      senderModel
+    });
+
+    await newChat.save();
+    res.json({ success: true, message: 'Chat message saved', imageUrl });
   } catch (error) {
     console.error('Error saving chat message:', error);
     res.status(500).json({ success: false, message: 'Error saving chat message' });
   }
 });
+
 
 app.get('/chat/:recipientId/:recipientModel/:senderId/:senderModel', async (req, res) => {
   try {
@@ -3867,3 +4134,7 @@ app.get('/completedAssessmentsCount', async (req, res) => {
       res.status(500).json({ error: 'Error fetching completed assessments count' });
   }
 });
+
+  server.listen(5000, () => {
+    console.log('Server is running on port 5000');
+  });

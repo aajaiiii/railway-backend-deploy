@@ -8,6 +8,7 @@ const UserDetailsScehma = new mongoose.Schema(
     surname: String,
     email: { type: String, unique: true },
     password: String,
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "Admin",
@@ -16,6 +17,17 @@ const UserDetailsScehma = new mongoose.Schema(
 );
 
 mongoose.model("Admin", UserDetailsScehma);
+
+const otpSchema = new mongoose.Schema({
+  username: String,
+  otp: String,
+  createdAt: { type: Date, default: Date.now, expires: '10m' }
+}, {
+  collection: 'OTPModel'
+});
+
+mongoose.model("OTPModel", otpSchema);
+
 
 const equipmentScehma = new mongoose.Schema(
   {
@@ -57,6 +69,7 @@ const MPersonnelScehma = new mongoose.Schema(
     nametitle: String,
     name: String,
     surname: String,
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "MPersonnel",
@@ -97,9 +110,10 @@ const UserScehma = new mongoose.Schema(
     Address: String,
     deletedAt: { type: Date, default: null },
     otp: String,
-    otpExpiration: Date,
+    otpExpiration: { type: Date, default: Date.now, expires: '10m' },
     AdddataFirst: { type: Boolean, default: false },
     physicalTherapy: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "User",
