@@ -11,7 +11,7 @@ var nodemailer = require("nodemailer");
 const randomstring = require("randomstring");
 const slugify = require("slugify");
 const cors = require("cors");
-
+require('dotenv').config();
 const { google } = require("googleapis");
 const axios = require('axios');
 const crypto = require('crypto');
@@ -129,13 +129,13 @@ app.post('/send-otp1', async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
-        user: "oysasitorn@gmail.com",
-        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     const mailOptions = {
-      from: 'oysasitorn@gmail.com',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
       text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
@@ -210,13 +210,13 @@ app.post('/send-otp2', async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
-        user: "oysasitorn@gmail.com",
-        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     const mailOptions = {
-      from: 'oysasitorn@gmail.com',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
       text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
@@ -291,13 +291,13 @@ app.post('/send-otp3', async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
-        user: "oysasitorn@gmail.com",
-        pass: "avyn xfwl pqio hmtr", // ตรวจสอบให้แน่ใจว่ารหัสผ่านถูกต้อง
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     const mailOptions = {
-      from: 'oysasitorn@gmail.com',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Homeward: รหัส OTP สำหรับยืนยันตัวตน',
       text: `เรียนคุณ ${username} รหัส OTP ของคุณคือ ${otp}\n\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
@@ -427,13 +427,13 @@ app.post("/forgot-password", async (req, res) => {
       service: "gmail",
       // มาเปลี่ยนอีเมลที่ส่งด้วย
       auth: {
-        user: "oysasitorn@gmail.com",
-        pass: "avyn xfwl pqio hmtr",
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     var mailOptions = {
-      from: "oysasitorn@gmail.com",
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "Reset your password for Homeward",
       text: `Hello,\n\nFollow this link to reset your Homeward password for your ${email} account.\n${link}\n\nIf you didn't ask to reset your password,you can ignore this email.\n\nThanks,\n\nYour Homeward team`,
@@ -1533,13 +1533,13 @@ app.post("/forgot-passworddt", async (req, res) => {
       service: "gmail",
       // มาเปลี่ยนอีเมลที่ส่งด้วย
       auth: {
-        user: "oysasitorn@gmail.com",
-        pass: "avyn xfwl pqio hmtr",
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     var mailOptions = {
-      from: "oysasitorn@gmail.com",
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "Reset your password for Homeward",
       text: `Hello,\n\nFollow this link to reset your Homeward password for your ${email} account.\n${link}\n\nIf you didn't ask to reset your password,you can ignore this email.\n\nThanks,\n\nYour Homeward team`,
@@ -2141,13 +2141,13 @@ app.post('/forgot-passworduser', async (req, res) => {
   const transporter = nodemailer.createTransport({
     service: 'Gmail',
     auth: {
-      user: 'oysasitorn@gmail.com',
-      pass: 'avyn xfwl pqio hmtr',
+      user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
     },
   });
 
   const mailOptions = {
-    from: "oysasitorn@gmail.com",
+    from: process.env.EMAIL_USER,
     to: user.email,
     subject: 'Homeward: รหัส OTP สำหรับเปลี่ยนรหัสผ่าน',
     text: `รหัส OTP ของคุณคือ ${otp}\nรหัสมีอายุ 5 นาที อย่าเปิดเผยรหัสนี้กับผู้อื่น`,
@@ -3843,6 +3843,54 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 
 // ------------------------------------------------
+//แชทส่งรูปไม่ได้
+// app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
+//   try {
+//     const { message, recipientId, senderId, recipientModel, senderModel } = req.body;
+
+//     // Validate required fields
+//     if (!message || !recipientId || !senderId || !recipientModel || !senderModel) {
+//       return res.status(400).json({ success: false, message: 'Missing required fields' });
+//     }
+
+//     let recipient, sender;
+
+//     // Find recipient
+//     recipient = recipientModel === 'User' 
+//       ? await User.findById(recipientId) 
+//       : await MPersonnel.findById(recipientId);
+      
+//     // Find sender
+//     sender = senderModel === 'User' 
+//       ? await User.findById(senderId) 
+//       : await MPersonnel.findById(senderId);
+
+//     if (!recipient || !sender) {
+//       return res.status(404).json({ success: false, message: 'Sender or recipient not found' });
+//     }
+
+//     let imageUrl;
+
+//     if (req.file) {
+//       imageUrl = await uploadImage(req.file);
+//     }
+
+//     const newChat = new Chat({
+//       message,
+//       image: imageUrl || undefined,
+//       recipient: recipient._id,
+//       sender: sender._id,
+//       recipientModel,
+//       senderModel
+//     });
+
+//     await newChat.save();
+//     res.json({ success: true, message: 'Chat message saved', imageUrl });
+//   } catch (error) {
+//     console.error('Error saving chat message:', error);
+//     res.status(500).json({ success: false, message: 'Error saving chat message' });
+//   }
+// });
 
 // แชทฝั่งหมอ
 
@@ -3876,55 +3924,91 @@ app.get("/searchuserchat", async (req, res) => {
   }
 });
 
-
-
 app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
   try {
     const { message, recipientId, senderId, recipientModel, senderModel } = req.body;
 
-    // Validate required fields
-    if (!message || !recipientId || !senderId || !recipientModel || !senderModel) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-
     let recipient, sender;
 
-    // Find recipient
-    recipient = recipientModel === 'User' 
-      ? await User.findById(recipientId) 
-      : await MPersonnel.findById(recipientId);
-      
-    // Find sender
-    sender = senderModel === 'User' 
-      ? await User.findById(senderId) 
-      : await MPersonnel.findById(senderId);
-
-    if (!recipient || !sender) {
-      return res.status(404).json({ success: false, message: 'Sender or recipient not found' });
+    if (recipientModel === 'User') {
+      recipient = await User.findById(recipientId);
+    } else if (recipientModel === 'MPersonnel') {
+      recipient = await MPersonnel.findById(recipientId);
     }
 
-    let imageUrl;
+    if (senderModel === 'User') {
+      sender = await User.findById(senderId);
+    } else if (senderModel === 'MPersonnel') {
+      sender = await MPersonnel.findById(senderId);
+    }
+
+    if (!recipient) {
+      return res.status(404).json({ success: false, message: 'Recipient not found' });
+    }
+
+    if (!sender) {
+      return res.status(404).json({ success: false, message: 'Sender not found' });
+    }
+
+    let newChat;
 
     if (req.file) {
-      imageUrl = await uploadImage(req.file);
+      const bucket = admin.storage().bucket();
+      const fileName = Date.now() + '-' + req.file.originalname;
+      const file = bucket.file(fileName);
+
+      const fileStream = file.createWriteStream({
+        metadata: {
+          contentType: req.file.mimetype
+        }
+      });
+
+      fileStream.on('error', (err) => {
+        console.error('Error uploading image:', err);
+        res.status(500).json({ success: false, message: 'Error uploading image' });
+      });
+
+      fileStream.on('finish', async () => {
+        const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
+
+        newChat = new Chat({
+          message,
+          image: imageUrl,
+          recipient: recipient._id,
+          sender: sender._id,
+          recipientModel,
+          senderModel
+        });
+
+        await newChat.save();
+
+        // ส่งข้อความใหม่ให้ผู้ใช้ทุกนที่เชื่อมต่อ
+
+        res.json({ success: true, message: 'Chat message with image saved', imageUrl });
+      });
+
+      fileStream.end(req.file.buffer);
+    } else {
+      newChat = new Chat({
+        message,
+        recipient: recipient._id,
+        sender: sender._id,
+        recipientModel,
+        senderModel
+      });
+
+      await newChat.save();
+    
+
+      res.json({ success: true, message: 'Chat message without image saved' });
     }
-
-    const newChat = new Chat({
-      message,
-      image: imageUrl || undefined,
-      recipient: recipient._id,
-      sender: sender._id,
-      recipientModel,
-      senderModel
-    });
-
-    await newChat.save();
-    res.json({ success: true, message: 'Chat message saved', imageUrl });
   } catch (error) {
     console.error('Error saving chat message:', error);
     res.status(500).json({ success: false, message: 'Error saving chat message' });
   }
 });
+
+
 
 
 app.get('/chat/:recipientId/:recipientModel/:senderId/:senderModel', async (req, res) => {
@@ -4134,7 +4218,10 @@ app.get('/completedAssessmentsCount', async (req, res) => {
       res.status(500).json({ error: 'Error fetching completed assessments count' });
   }
 });
-
+// const PORT = process.env.PORT || 5000;
+//   server.listen(PORT, () => {
+//     console.log('Server is running on port 5000');
+//   });
   server.listen(5000, () => {
     console.log('Server is running on port 5000');
   });
