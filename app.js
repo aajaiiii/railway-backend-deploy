@@ -22,7 +22,7 @@ const socketIo = require('socket.io');
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.2.57:8081"], // ให้แน่ใจว่าใส่ URL ของ front-end app
+    origin: ["http://localhost:3000", "http://192.168.2.57:8081","http://localhost:3001"], // ให้แน่ใจว่าใส่ URL ของ front-end app
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
     credentials: true,
@@ -30,12 +30,23 @@ const io = socketIo(server, {
 });
 app.use(cors());
 const admin = require('firebase-admin');
-const serviceAccount = require('./sdk/homeward-422311-firebase-adminsdk-sd9ly-3a629477d2.json');
+// const serviceAccount = require('./sdk/homeward-422311-firebase-adminsdk-sd9ly-3a629477d2.json');
 const multerr = require('multer');
 const uploadimg = multerr({ storage: multerr.memoryStorage() });
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: 'homeward-422311.appspot.com'
+  credential: admin.credential.cert({
+    type: process.env.FIREBASE_TYPE,
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: process.env.FIREBASE_AUTH_URI,
+    token_uri: process.env.FIREBASE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+  }),
+  storageBucket: 'gs://homeward-422311.appspot.com'
 });
 const JWT_REFRESH_SECRET = 'hvdvay6ert72eerr839289()aiyg8t87qt724tyty393293883uhefiuh78ttq3ifi78272jbkj?[]]pou89ywe';
 
@@ -76,6 +87,7 @@ const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
 const Assessreadiness = mongoose.model("Assessreadiness")
 const OTPModel = mongoose.model("OTPModel")
+const OTPModelUser = mongoose.model("OTPModelUser")
 
 app.post("/addadmin", async (req, res) => {
   const { username, name,surname, email, password, confirmPassword } = req.body;
@@ -884,18 +896,15 @@ const upload = multer({ storage: storage }).fields([
 app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
   const { caremanual_name, detail } = req.body;
 
-  // ตรวจสอบว่ามีการส่งชื่อหัวข้อหรือไม่
   if (!caremanual_name) {
     return res.status(400).json({ error: "กรุณากรอกหัวข้อ" });
   }
 
-  // ตรวจสอบว่ามีการอัปโหลดรูปภาพหรือไม่
   if (!req.files['image']) {
     return res.status(400).json({ error: "กรุณาเลือกรูปภาพ" });
   }
 
   try {
-    // ตรวจสอบชื่อหัวข้อว่ามีอยู่แล้วหรือไม่
     const existingCareManual = await Caremanual.findOne({ caremanual_name });
     if (existingCareManual) {
       return res.status(400).json({ error: "หัวข้อนี้มีอยู่แล้ว กรุณาใช้หัวข้ออื่น" });
@@ -903,106 +912,140 @@ app.post("/addcaremanual1", uploadimg.fields([{ name: 'image' }, { name: 'file' 
 
     let imageUrl = null;
     let fileUrl = null;
+    const bucket = admin.storage().bucket();
+    const uploadPromises = [];
 
     // อัปโหลดรูปภาพ
     if (req.files['image']) {
-      const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.files['image'][0].originalname;
-      const file = bucket.file(fileName);
+      const imageFileName = Date.now() + '-' + req.files['image'][0].originalname;
+      const imageFile = bucket.file(imageFileName);
 
-      const fileStream = file.createWriteStream({
-        metadata: {
-          contentType: req.files['image'][0].mimetype
-        }
+      const imageUploadPromise = new Promise((resolve, reject) => {
+        const imageFileStream = imageFile.createWriteStream({
+          metadata: { contentType: req.files['image'][0].mimetype }
+        });
+
+        imageFileStream.on('error', (err) => {
+          console.error('Error uploading image:', err);
+          reject(err);
+        });
+
+        imageFileStream.on('finish', () => {
+          imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(imageFileName)}?alt=media`;
+          resolve();
+        });
+
+        imageFileStream.end(req.files['image'][0].buffer);
       });
 
-      fileStream.on('error', (err) => {
-        console.error('Error uploading image:', err);
-        return res.status(500).json({ success: false, message: 'Error uploading image' });
-      });
-
-      fileStream.on('finish', async () => {
-        imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
-
-        // ตรวจสอบว่าอย่างน้อยมี imageUrl เพื่อบันทึกข้อมูล
-        if (imageUrl || fileUrl) {
-          try {
-            const newCare = new Caremanual({
-              caremanual_name,
-              image: imageUrl,
-              file: fileUrl, // อาจเป็นค่าว่างได้
-              detail,
-            });
-
-            await newCare.save();
-            return res.json({ status: "ok", success: true, message: 'Care manual saved', imageUrl, fileUrl });
-          } catch (error) {
-            console.error('Error saving care manual:', error);
-            return res.status(500).json({ success: false, message: 'Error saving care manual' });
-          }
-        }
-      });
-
-      fileStream.end(req.files['image'][0].buffer);
+      uploadPromises.push(imageUploadPromise);
     }
 
     // อัปโหลดไฟล์ (ถ้ามี)
     if (req.files['file']) {
-      const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.files['file'][0].originalname;
-      const file = bucket.file(fileName);
+      const fileFileName = Date.now() + '-' + req.files['file'][0].originalname;
+      const fileFile = bucket.file(fileFileName);
 
-      const fileStream = file.createWriteStream({
-        metadata: {
-          contentType: req.files['file'][0].mimetype
-        }
+      const fileUploadPromise = new Promise((resolve, reject) => {
+        const fileFileStream = fileFile.createWriteStream({
+          metadata: { contentType: req.files['file'][0].mimetype }
+        });
+
+        fileFileStream.on('error', (err) => {
+          console.error('Error uploading file:', err);
+          reject(err);
+        });
+
+        fileFileStream.on('finish', () => {
+          fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileFileName)}?alt=media`;
+          resolve();
+        });
+
+        fileFileStream.end(req.files['file'][0].buffer);
       });
 
-      fileStream.on('error', (err) => {
-        console.error('Error uploading file:', err);
-        return res.status(500).json({ success: false, message: 'Error uploading file' });
-      });
-
-      fileStream.on('finish', async () => {
-        fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
-
-        // ตรวจสอบว่าอย่างน้อยมี imageUrl เพื่อบันทึกข้อมูล
-        if (imageUrl || fileUrl) {
-          try {
-            const newCare = new Caremanual({
-              caremanual_name,
-              image: imageUrl,
-              file: fileUrl, // อาจเป็นค่าว่างได้
-              detail,
-            });
-
-            await newCare.save();
-            return res.json({ status: "ok", success: true, message: 'Care manual saved', imageUrl, fileUrl });
-          } catch (error) {
-            console.error('Error saving care manual:', error);
-            return res.status(500).json({ success: false, message: 'Error saving care manual' });
-          }
-        }
-      });
-
-      fileStream.end(req.files['file'][0].buffer);
+      uploadPromises.push(fileUploadPromise);
     }
+
+    // รอให้การอัปโหลดทั้งภาพและไฟล์เสร็จสิ้นก่อนบันทึกข้อมูลและส่ง response
+    await Promise.all(uploadPromises);
+
+    const newCare = new Caremanual({
+      caremanual_name,
+      image: imageUrl,
+      file: fileUrl,
+      detail,
+    });
+
+    await newCare.save();
+    return res.json({ status: "ok", success: true, message: 'Care manual saved' });
 
   } catch (error) {
     console.error('Error processing request:', error);
     return res.status(500).json({ success: false, message: 'Error processing request' });
   }
 });
+app.delete("/remove-image/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    // ค้นหาข้อมูลของคู่มือที่ต้องการลบรูปภาพ
+    const caremanual = await Caremanual.findById(id);
+    if (!caremanual) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลคู่มือ" });
+    }
 
+    // ลบไฟล์รูปภาพจาก Cloud Storage หรือที่เก็บรูปภาพของคุณ
+    // ตัวอย่างเช่น ถ้าใช้ Firebase หรือ S3 ของ AWS ต้องเรียกฟังก์ชันเพื่อลบที่นี่
+    // await deleteImageFromCloud(caremanual.image); // สมมติว่ามีฟังก์ชันนี้
 
-const upload1 = multer({ storage: storage }).fields([
+    // ลบข้อมูลรูปภาพจากฐานข้อมูล
+    caremanual.image = null;
+    await caremanual.save();
+
+    res.status(200).json({ message: "ลบรูปภาพสำเร็จ" });
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการลบรูปภาพ:", error);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการลบรูปภาพ" });
+  }
+});
+
+// ลบไฟล์
+app.delete("/remove-file/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ค้นหาข้อมูลของคู่มือที่ต้องการลบไฟล์
+    const caremanual = await Caremanual.findById(id);
+    if (!caremanual) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลคู่มือ" });
+    }
+
+    // ลบไฟล์จาก Cloud Storage หรือที่เก็บไฟล์ของคุณ
+    // ตัวอย่างเช่น ถ้าใช้ Firebase หรือ S3 ของ AWS ต้องเรียกฟังก์ชันเพื่อลบที่นี่
+    // await deleteFileFromCloud(caremanual.file); // สมมติว่ามีฟังก์ชันนี้
+
+    // ลบข้อมูลไฟล์จากฐานข้อมูล
+    caremanual.file = null;
+    await caremanual.save();
+
+    res.status(200).json({ message: "ลบไฟล์สำเร็จ" });
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการลบไฟล์:", error);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการลบไฟล์" });
+  }
+});
+
+const bucket = admin.storage().bucket();
+
+// Define multer storage configuration for handling file uploads
+const upload1 = multer({ storage: multer.memoryStorage() }).fields([
   { name: "fileP", maxCount: 1 },
   { name: "fileM", maxCount: 1 },
   { name: "filePhy", maxCount: 1 },
 ]);
 
-// Add medical information
+// Add medical information with file upload to Firebase
 app.post("/addmedicalinformation", upload1, async (req, res) => {
   try {
     const {
@@ -1016,7 +1059,7 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       Present_illness,
       Phychosocial_assessment,
       Management_plan,
-      userId // This should match the key in the frontend FormData
+      userId
     } = req.body;
 
     // Initializing file variables
@@ -1024,16 +1067,61 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
     let fileManage = "";
     let filePhychosocial = "";
 
+    // Upload fileP to Firebase Storage
     if (req.files["fileP"] && req.files["fileP"][0]) {
-      filePresent = req.files["fileP"][0].path;
+      const file = req.files["fileP"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          filePresent = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
+    // Upload fileM to Firebase Storage
     if (req.files["fileM"] && req.files["fileM"][0]) {
-      fileManage = req.files["fileM"][0].path;
+      const file = req.files["fileM"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          fileManage = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
+    // Upload filePhy to Firebase Storage
     if (req.files["filePhy"] && req.files["filePhy"][0]) {
-      filePhychosocial = req.files["filePhy"][0].path;
+      const file = req.files["filePhy"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          filePhychosocial = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
     // Check if userId is present
@@ -1056,16 +1144,15 @@ app.post("/addmedicalinformation", upload1, async (req, res) => {
       fileM: fileManage,
       fileP: filePresent,
       filePhy: filePhychosocial,
-      user: userId, // Use the userId sent from the frontend
+      user: userId,
     });
 
     res.json({ status: "ok", data: medicalInformation });
   } catch (error) {
-    console.error("Error adding medical information:", error); // Log the error for debugging
+    console.error("Error adding medical information:", error);
     res.json({ status: "error", message: "เกิดข้อผิดพลาดขณะเพิ่มข้อมูล" });
   }
 });
-
 
 app.get("/medicalInformation/:id", async (req, res) => {
   const { id } = req.params;
@@ -1398,7 +1485,11 @@ app.get("/getcaremanual/:id", async (req, res) => {
     if (!caremanual) {
       return res.status(404).json({ error: "Caremanual not found" });
     }
-
+    if (caremanual) {
+      // เพิ่มจำนวนการเข้าชม
+      caremanual.views += 1;
+      await caremanual.save(); // บันทึกจำนวนการเข้าชมที่อัปเดตแล้ว
+    }
     res.json(caremanual);
   } catch (error) {
     console.error("Error fetching caremanual:", error);
@@ -1793,6 +1884,12 @@ app.post("/adduser", async (req, res) => {
     });
   }
 
+  if (username.length !== 13) {
+    return res.json({
+      error: "ชื่อผู้ใช้ต้องมีความยาว 13 ตัวอักษร",
+    });
+  }
+
   const encryptedPassword = await bcrypt.hash(tel, 10);
 
   try {
@@ -2134,9 +2231,8 @@ app.post('/forgot-passworduser', async (req, res) => {
   const otpExpiration = Date.now() + 300000; 
 
 
-  user.otp = otp;
-  user.otpExpiration = otpExpiration;
-  await user.save();
+  await OTPModelUser.updateOne({ email }, { otp, otpExpiration }, { upsert: true });
+
 
   const transporter = nodemailer.createTransport({
     service: 'Gmail',
@@ -2164,11 +2260,17 @@ app.post('/forgot-passworduser', async (req, res) => {
 app.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
-  const user = await User.findOne({ email, otp, otpExpiration: { $gt: Date.now() } });
-  if (!user) {
-    return res.status(400).send('รหัส OTP หมดอายุ');
-  }
+  const otpRecord = await OTPModelUser.findOne({ email }).sort({ createdAt: -1 });
+  if (!otpRecord) {
+      return res.status(400).send('รหัส OTP หมดอายุหรือไม่ถูกต้อง');
+    }
+    const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
 
+  if (!isOtpValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    await OTPModelUser.deleteMany({ email});
   res.send('ส่งรหัส OTP แล้ว');
 });
 
@@ -2185,8 +2287,6 @@ app.post('/reset-password', async (req, res) => {
   const encryptedPassword = await bcrypt.hash(newPassword, 10);
 
   user.password = encryptedPassword;
-  user.otp = undefined;
-  user.otpExpiration = undefined;
   await user.save();
 
   res.send('เปลี่ยนรหัสสำเร็จ');
@@ -3518,68 +3618,90 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
     let fileManage = "";
     let filePhychosocial = "";
 
+    const bucket = admin.storage().bucket();
+
+    // Upload fileP to Firebase Storage (if exists)
     if (req.files["fileP"] && req.files["fileP"][0]) {
-      filePresent = req.files["fileP"][0].path;
+      const file = req.files["fileP"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          filePresent = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
+    // Upload fileM to Firebase Storage (if exists)
     if (req.files["fileM"] && req.files["fileM"][0]) {
-      fileManage = req.files["fileM"][0].path;
+      const file = req.files["fileM"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          fileManage = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
+    // Upload filePhy to Firebase Storage (if exists)
     if (req.files["filePhy"] && req.files["filePhy"][0]) {
-      filePhychosocial = req.files["filePhy"][0].path;
+      const file = req.files["filePhy"][0];
+      const fileName = Date.now() + '-' + file.originalname;
+      const fileRef = bucket.file(fileName);
+      const fileStream = fileRef.createWriteStream({
+        metadata: { contentType: file.mimetype },
+      });
+
+      fileStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', () => {
+          filePhychosocial = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+          resolve();
+        });
+        fileStream.on('error', reject);
+      });
     }
 
     const oldMedicalInfo = await MedicalInformation.findById(id);
-
     if (!oldMedicalInfo) {
       return res.status(404).json({ status: "Medical information not found" });
     }
 
-    let existingFilename = "";
-    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
-    if (filePresent !== "") {
-      existingFilename = filePresent;
-    } else {
-      existingFilename = oldMedicalInfo.fileP;
-    }
-
-    let existingFilename1 = "";
-    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
-    if (fileManage !== "") {
-      existingFilename1 = fileManage;
-    } else {
-      existingFilename1 = oldMedicalInfo.fileM;
-    }
-
-    let existingFilename2 = "";
-    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่
-    if (filePhychosocial !== "") {
-      existingFilename2 = filePhychosocial;
-    } else {
-      existingFilename2 = oldMedicalInfo.filePhy;
-    }
-
-    const updatedMedicalInformation =
-      await MedicalInformation.findByIdAndUpdate(
-        id,
-        {
-          HN,
-          AN,
-          Date_Admit,
-          Date_DC,
-          Diagnosis,
-          Chief_complaint,
-          Present_illness,
-          Phychosocial_assessment,
-          Management_plan,
-          fileP: existingFilename,
-          fileM: existingFilename1,
-          filePhy: existingFilename2,
-          selectedPersonnel: selectedPersonnel,
-        },
-        { new: true }
-      );
+    // ตรวจสอบว่ามีการอัปโหลดไฟล์ไม่ ถ้าไม่มี ใช้ไฟล์เดิมจากฐานข้อมูล
+    const updatedMedicalInformation = await MedicalInformation.findByIdAndUpdate(
+      id,
+      {
+        HN,
+        AN,
+        Date_Admit,
+        Date_DC,
+        Diagnosis,
+        Chief_complaint,
+        Present_illness,
+        Phychosocial_assessment,
+        Management_plan,
+        fileP: filePresent || oldMedicalInfo.fileP,
+        fileM: fileManage || oldMedicalInfo.fileM,
+        filePhy: filePhychosocial || oldMedicalInfo.filePhy,
+        selectedPersonnel,
+      },
+      { new: true }
+    );
 
     if (!updatedMedicalInformation) {
       return res.status(404).json({ status: "Medical information not found" });
@@ -3587,7 +3709,8 @@ app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
 
     res.json({ status: "ok", updatedMedicalInfo: updatedMedicalInformation });
   } catch (error) {
-    res.json({ status: error });
+    console.error("Error updating medical information:", error);
+    res.status(500).json({ status: "error", message: "Error updating medical information" });
   }
 });
 
@@ -3954,8 +4077,9 @@ app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
 
     if (req.file) {
       const bucket = admin.storage().bucket();
-      const fileName = Date.now() + '-' + req.file.originalname;
+      const fileName = req.file.originalname;
       const file = bucket.file(fileName);
+      const originalFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
 
       const fileStream = file.createWriteStream({
         metadata: {
@@ -3969,22 +4093,27 @@ app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
       });
 
       fileStream.on('finish', async () => {
+        const [metadata] = await file.getMetadata();
+        const fileSize = metadata.size;
+
         const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
 
         newChat = new Chat({
           message,
           image: imageUrl,
+          imageName: originalFileName, 
           recipient: recipient._id,
           sender: sender._id,
           recipientModel,
-          senderModel
+          senderModel,
+          fileSize
         });
 
         await newChat.save();
 
         // ส่งข้อความใหม่ให้ผู้ใช้ทุกนที่เชื่อมต่อ
 
-        res.json({ success: true, message: 'Chat message with image saved', imageUrl });
+        res.json({ success: true, message: 'Chat message with image saved', imageUrl,imageName: originalFileName, fileSize });
       });
 
       fileStream.end(req.file.buffer);

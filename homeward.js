@@ -28,6 +28,15 @@ const otpSchema = new mongoose.Schema({
 
 mongoose.model("OTPModel", otpSchema);
 
+const otpuserSchema = new mongoose.Schema({
+  email:  String,
+  otp: String,
+  createdAt: { type: Date, default: Date.now, expires: '10m' }
+}, {
+  collection: 'OTPModelUser'
+});
+
+mongoose.model("OTPModelUser", otpuserSchema);
 
 const equipmentScehma = new mongoose.Schema(
   {
@@ -85,6 +94,7 @@ const CaremanualScehma = new mongoose.Schema(
     image: String,
     file: String,
     detail: String,
+    views: { type: Number, default: 0 }, 
   },
   {
     collection: "Caremanual",
@@ -109,8 +119,8 @@ const UserScehma = new mongoose.Schema(
     nationality: String,
     Address: String,
     deletedAt: { type: Date, default: null },
-    otp: String,
-    otpExpiration: { type: Date, default: Date.now, expires: '10m' },
+    // otp: String,
+    // otpExpiration: { type: Date, default: Date.now, expires: '10m' },
     AdddataFirst: { type: Boolean, default: false },
     physicalTherapy: { type: Boolean, default: false },
     isEmailVerified: { type: Boolean, default: false } 
@@ -236,6 +246,11 @@ const chatSchema = new mongoose.Schema(
       refPath: 'senderModel',
     },
     image: String,
+    imageName: {
+      type: String,
+      default: null,
+    },
+    
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
       refPath: 'recipientModel',
@@ -255,7 +270,12 @@ const chatSchema = new mongoose.Schema(
       default: false
     },
     readAt: Date,
+    fileSize: {
+      type: Number, 
+      default: null,
+    },
   },
+
   {
     collection: "Chat",
     timestamps: true,
