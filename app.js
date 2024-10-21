@@ -87,7 +87,8 @@ const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
 const ReadinessForm = mongoose.model("ReadinessForm")
 const ReadinessAssessment = mongoose.model("ReadinessAssessment")
-
+const OTPModel = mongoose.model("OTPModel")
+const OTPModelUser = mongoose.model("OTPModelUser")
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, surname, email, password, confirmPassword } = req.body;
@@ -1173,6 +1174,7 @@ app.get("/medicalInformation/:id", async (req, res) => {
   }
 });
 
+
 // // ดึงข้อมูลผู้ป่วยมาโชว์
 app.get("/alluser", async (req, res) => {
   try {
@@ -1508,7 +1510,7 @@ app.post("/loginmpersonnel", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "7d",
     });
 
     if (res.status(201)) {
