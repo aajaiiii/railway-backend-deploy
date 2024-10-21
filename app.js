@@ -85,7 +85,7 @@ const Assessment = mongoose.model("Assessment");
 const Chat = mongoose.model("Chat");
 const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
-const Assessreadiness = mongoose.model("Assessreadiness")
+
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, surname, email, password, confirmPassword } = req.body;
