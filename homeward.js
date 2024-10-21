@@ -8,6 +8,7 @@ const UserDetailsScehma = new mongoose.Schema(
     surname: String,
     email: { type: String, unique: true },
     password: String,
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "Admin",
@@ -16,6 +17,26 @@ const UserDetailsScehma = new mongoose.Schema(
 );
 
 mongoose.model("Admin", UserDetailsScehma);
+
+const otpSchema = new mongoose.Schema({
+  username: String,
+  otp: String,
+  createdAt: { type: Date, default: Date.now, expires: '10m' }
+}, {
+  collection: 'OTPModel'
+});
+
+mongoose.model("OTPModel", otpSchema);
+
+const otpuserSchema = new mongoose.Schema({
+  email:  String,
+  otp: String,
+  createdAt: { type: Date, default: Date.now, expires: '10m' }
+}, {
+  collection: 'OTPModelUser'
+});
+
+mongoose.model("OTPModelUser", otpuserSchema);
 
 const equipmentScehma = new mongoose.Schema(
   {
@@ -58,6 +79,7 @@ const MPersonnelScehma = new mongoose.Schema(
     nametitle: String,
     name: String,
     surname: String,
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "MPersonnel",
@@ -73,6 +95,7 @@ const CaremanualScehma = new mongoose.Schema(
     image: String,
     file: String,
     detail: String,
+    views: { type: Number, default: 0 }, 
   },
   {
     collection: "Caremanual",
@@ -97,10 +120,11 @@ const UserScehma = new mongoose.Schema(
     nationality: String,
     Address: String,
     deletedAt: { type: Date, default: null },
-    otp: String,
-    otpExpiration: Date,
+    // otp: String,
+    // otpExpiration: { type: Date, default: Date.now, expires: '10m' },
     AdddataFirst: { type: Boolean, default: false },
     physicalTherapy: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false } 
   },
   {
     collection: "User",
@@ -167,7 +191,7 @@ const MedicalInformationSchema = new mongoose.Schema(
 );
 mongoose.model("MedicalInformation", MedicalInformationSchema);
 
-//ฟแร์มบันทึกอาการ
+//ฟอร์มบันทึกอาการ
 const PatientFormSchema = new mongoose.Schema(
   {
     Symptoms: [String],
@@ -214,6 +238,7 @@ const AssessmentScehma = new mongoose.Schema(
 
 mongoose.model("Assessment", AssessmentScehma);
 
+
 const chatSchema = new mongoose.Schema(
   {
     message: String,
@@ -222,6 +247,11 @@ const chatSchema = new mongoose.Schema(
       refPath: 'senderModel',
     },
     image: String,
+    imageName: {
+      type: String,
+      default: null,
+    },
+    
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
       refPath: 'recipientModel',
@@ -241,7 +271,12 @@ const chatSchema = new mongoose.Schema(
       default: false
     },
     readAt: Date,
+    fileSize: {
+      type: Number, 
+      default: null,
+    },
   },
+
   {
     collection: "Chat",
     timestamps: true,
@@ -249,6 +284,7 @@ const chatSchema = new mongoose.Schema(
 );
 
 mongoose.model("Chat", chatSchema);
+
 
 
 const AlertSchema = new mongoose.Schema(
