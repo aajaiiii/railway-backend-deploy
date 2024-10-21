@@ -43,6 +43,7 @@ const equipmentuserScehma = new mongoose.Schema(
   },
   {
     collection: "EquipmentUser",
+    timestamps: true,
   }
 );
 
@@ -169,7 +170,7 @@ mongoose.model("MedicalInformation", MedicalInformationSchema);
 //ฟแร์มบันทึกอาการ
 const PatientFormSchema = new mongoose.Schema(
   {
-    Symptoms: [String], 
+    Symptoms: [String],
     SBP: Number,
     DBP: Number,
     PulseRate: Number,
@@ -300,8 +301,9 @@ const UserThresholdSchema = new mongoose.Schema({
 
 mongoose.model('UserThreshold', UserThresholdSchema);
 
-const AssessreadinessSchema = new mongoose.Schema({
+const ReadinessFormSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
   Readiness1: {
     question1_1: { type: String, required: true },
     question1_2: { type: String, required: true },
@@ -318,68 +320,58 @@ const AssessreadinessSchema = new mongoose.Schema({
     Diet: { type: String, required: true },
   },
   status_name: String,
+}, {
+  collection: 'ReadinessForm',
+  timestamps: true,
+});
+
+mongoose.model('ReadinessForm', ReadinessFormSchema);
+
+const ReadinessAssessmentSchema = new mongoose.Schema({
+  ReadinessForm: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ReadinessForm",
+    required: true
+  },
+  MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
   readiness_status: String,
+  detail: String,
 }, {
-  collection: 'Assessreadiness',
+  collection: 'ReadinessAssessment',
   timestamps: true,
 });
 
-mongoose.model('Assessreadiness', AssessreadinessSchema);
+mongoose.model('ReadinessAssessment', ReadinessAssessmentSchema);
 
 
-const ImmobilitySchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  pickUpFood: { type: Number, required: true },
-  cleanUp: { type: Number, required: true },
-  putOnClothes: { type: Number, required: true },
-  shower: { type: Number, required: true },
-  usingToilet: { type: Number, required: true },
-  getUp: { type: Number, required: true },
-  walkInside: { type: Number, required: true },
-  upDownStairs: { type: Number, required: true },
-  continenceUrine: { type: Number, required: true },
-  continenceStool: { type: Number, required: true },
-  walkOutside: { type: Number, required: true },
-  cooking: { type: Number, required: true },
-  householdChores: { type: Number, required: true },
-  shopping: { type: Number, required: true },
-  takingPublicTransportation: { type: Number, required: true },
-  takingMedicine: { type: Number, required: true },
-  totalScore: { type: Number, required: true }
-});
+// const AssessinhomesssSchema = new mongoose.Schema({
+//   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+//   Immobility: {
+//     pickUpFood: { type: Number, required: true },
+//     cleanUp: { type: Number, required: true },
+//     putOnClothes: { type: Number, required: true },
+//     shower: { type: Number, required: true },
+//     usingToilet: { type: Number, required: true },
+//     getUp: { type: Number, required: true },
+//     walkInside: { type: Number, required: true },
+//     upDownStairs: { type: Number, required: true },
+//     continenceUrine: { type: Number, required: true },
+//     continenceStool: { type: Number, required: true },
+//     walkOutside: { type: Number, required: true },
+//     cooking: { type: Number, required: true },
+//     householdChores: { type: Number, required: true },
+//     shopping: { type: Number, required: true },
+//     takingPublicTransportation: { type: Number, required: true },
+//     takingMedicine: { type: Number, required: true },
+//     totalScore: { type: Number, required: true }
+//   },
+//   Nutrition: {
 
-mongoose.model('Immobility', ImmobilitySchema);
+//   },
+//   inhome_status: String,
+// }, {
+//   collection: 'Assessinhomesss',
+//   timestamps: true,
+// });
 
-
-const AssessinhomesssSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  Immobility: {
-    pickUpFood: { type: Number, required: true },
-    cleanUp: { type: Number, required: true },
-    putOnClothes: { type: Number, required: true },
-    shower: { type: Number, required: true },
-    usingToilet: { type: Number, required: true },
-    getUp: { type: Number, required: true },
-    walkInside: { type: Number, required: true },
-    upDownStairs: { type: Number, required: true },
-    continenceUrine: { type: Number, required: true },
-    continenceStool: { type: Number, required: true },
-    walkOutside: { type: Number, required: true },
-    cooking: { type: Number, required: true },
-    householdChores: { type: Number, required: true },
-    shopping: { type: Number, required: true },
-    takingPublicTransportation: { type: Number, required: true },
-    takingMedicine: { type: Number, required: true },
-    totalScore: { type: Number, required: true }
-  },
-  Nutrition: {
-
-  },
-  status_name: String,
-  inhome_status: String,
-}, {
-  collection: 'Assessinhomesss',
-  timestamps: true,
-});
-
-mongoose.model('Assessinhomesss', AssessinhomesssSchema);
+// mongoose.model('Assessinhomesss', AssessinhomesssSchema);

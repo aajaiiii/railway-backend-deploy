@@ -65,10 +65,11 @@ const Assessment = mongoose.model("Assessment");
 const Chat = mongoose.model("Chat");
 const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
-const Assessreadiness = mongoose.model("Assessreadiness")
+const ReadinessForm = mongoose.model("ReadinessForm")
+const ReadinessAssessment = mongoose.model("ReadinessAssessment")
 
 app.post("/addadmin", async (req, res) => {
-  const { username, name,surname, email, password, confirmPassword } = req.body;
+  const { username, name, surname, email, password, confirmPassword } = req.body;
   if (!username || !password || !email) {
     return res.json({ error: "กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และอีเมล" });
   }
@@ -105,7 +106,7 @@ app.post("/login", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: '30d',
+      expiresIn: '15m',
     });
 
     if (res.status(201)) {
@@ -1109,7 +1110,7 @@ app.post("/loginmpersonnel", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: "30d",
+      expiresIn: "15m",
     });
 
     if (res.status(201)) {
@@ -1337,7 +1338,7 @@ app.get("/searchmpersonnel", async (req, res) => {
     const result = await MPersonnel.aggregate([
       {
         $addFields: {
-          fullname: { $concat: ["$nametitle","$name", " ", "$surname"] }
+          fullname: { $concat: ["$nametitle", "$name", " ", "$surname"] }
         }
       },
       {
@@ -1539,7 +1540,7 @@ const auth = new GoogleAuth({
 async function getDataFromGoogleSheet() {
   const sheets = google.sheets({ version: "v4", auth });
   const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: "1k_V4qRCTbeRtra4ccKFMA5xAo1m9mamBXxYLN0uy8bc",
+    spreadsheetId: "1scjY-w7mdPUJglcFem97S4wXrKpOoYwaH4BdAAlHkGE",
     range: "Sheet1", // Range of data to fetch
   });
   return response.data.values;
@@ -2259,8 +2260,8 @@ app.put("/alerts/:id/viewed", async (req, res) => {
     const userId = req.body.userId;
 
     const alert = await Alert.findByIdAndUpdate(
-      alertId, 
-      { $addToSet: { viewedBy: userId } }, 
+      alertId,
+      { $addToSet: { viewedBy: userId } },
       { new: true }
     );
 
@@ -2885,12 +2886,12 @@ app.post("/updateuser/:id", async (req, res) => {
 // });
 
 app.post("/updatenameadmin/:id", async (req, res) => {
-  const { name,surname } = req.body;
+  const { name, surname } = req.body;
   const id = req.params.id;
   try {
     // อัปเดตชื่อของ admin
     // const admin = await Admins.findById(id);
-    await Admins.findByIdAndUpdate(id, { name,surname  });
+    await Admins.findByIdAndUpdate(id, { name, surname });
 
     res
       .status(200)
@@ -3565,70 +3566,132 @@ app.get("/diagnosis-count", async (req, res) => {
 });
 
 //ประเมินความพร้อม
-app.post('/submitAssessreadiness/:id', async (req, res) => {
-  const { userId, Readiness1, Readiness2, status_name } = req.body;
+app.post('/submitReadinessForm/:id', async (req, res) => {
+  const { userId, Readiness1, Readiness2, status_name, MPersonnel } = req.body;
 
   try {
-    const newAssessreadiness = new Assessreadiness({
+    const newReadinessForm = new ReadinessForm({
       user: userId,
+      MPersonnel,
       Readiness1,
       Readiness2,
       status_name,
     });
-    await newAssessreadiness.save();
-    res.status(201).json({ success: true, message: 'Assessreadiness saved successfully' });
+    await newReadinessForm.save();
+    res.status(201).json({ success: true, message: 'ReadinessForm saved successfully' });
   } catch (error) {
-    console.error('Error saving Assessreadiness:', error);
-    res.status(500).json({ success: false, message: 'Error saving Assessreadiness' });
+    console.error('Error saving ReadinessForm:', error);
+    res.status(500).json({ success: false, message: 'Error saving ReadinessForm' });
   }
 });
 
-app.get('/getAssessreadiness/:id', async (req, res) => {
-  const userId = req.params.id;
+
+//เอาบันทึกคนนี้้มาทั้งหมด
+app.get("/getpatientforms/:userId", async (req, res) => {
+  const userId = req.params.userId;
 
   try {
-    const assessreadinesses = await Assessreadiness.find({ user: userId });
+    const patientForms = await PatientForm.find({ user: userId });
+    res.send({ status: "ok", data: patientForms });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
 
-    if (!assessreadinesses || assessreadinesses.length === 0) {
-      return res.status(404).json({ success: false, message: 'No assessments found' });
+
+//ฝั่งแพทย์
+// เอาอาการที่เลือกมาแสดง
+app.get("/getpatientformsone/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const patientFormsone = await PatientForm.findById(id);
+    res.send({ status: "ok", data: patientFormsone });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+
+//เอาบันทึกคนนี้้มาทั้งหมด
+app.get("/getReadinessForms/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const readinessForms = await ReadinessForm.find({ user: userId }).populate('MPersonnel');;
+    res.send({ status: "ok", data: readinessForms });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+// ดึงข้อมูล ReadinessForm โดยใช้ ID
+app.get('/getReadinessForm/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const readinessForm = await ReadinessForm.findById(id);
+    
+    if (!readinessForm) {
+      return res.status(404).json({ success: false, message: 'ReadinessForm not found' });
     }
 
-    const assessreadinessData = assessreadinesses.map(assessreadiness => ({
-      Readiness1: assessreadiness.Readiness1,
-      Readiness2: assessreadiness.Readiness2,
-      status_name: assessreadiness.status_name,
-      readiness_status: assessreadiness.readiness_status,
-    }));
-
-    res.status(200).json({ success: true, data: assessreadinessData });
+    res.status(200).json({ success: true, data: readinessForm });
   } catch (error) {
-    console.error('Error retrieving assessments:', error);
-    res.status(500).json({ success: false, message: 'Error retrieving assessments' });
+    console.error('Error fetching ReadinessForm:', error);
+    res.status(500).json({ success: false, message: 'Error fetching ReadinessForm' });
   }
 });
 
-app.get('/getUserAssessreadiness/:id', async (req, res) => {
-  const userId = req.params.id;
+app.post('/addReadinessAssessment', async (req, res) => {
+  const { readiness_status, detail, MPersonnel, ReadinessForm } = req.body;
+
   try {
-    const assessreadiness = await Assessreadiness.findOne({ user: userId }).select('status_name');
-    if (assessreadiness) {
-      res.status(200).json({ success: true, status_name: assessreadiness.status_name });
+    // Ensure that ReadinessForm ID is included in the new readiness assessment data
+    await ReadinessAssessment.create({
+      readiness_status,
+      detail,
+      MPersonnel,
+      ReadinessForm,  // Include the form ID here
+    });
+    res.send({ status: "ok" });
+  } catch (error) {
+    if (error.code === 11000 && error.keyPattern.ReadinessForm) {
+      res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
     } else {
-      res.status(404).json({ success: false, message: 'Assessreadiness not found' });
+      console.error(error);
+      res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
     }
+  }
+});
+app.get("/allReadinessAssessment", async (req, res) => {
+  try {
+    const allReadinessAssessment = await ReadinessAssessment.find({});
+    res.send({ status: "ok", data: allReadinessAssessment });
   } catch (error) {
-    console.error('Error fetching assessreadiness:', error);
-    res.status(500).json({ success: false, message: 'Error fetching assessreadiness' });
+    console.log(error);
   }
 });
 
+app.get("/allReadinessAssessments", async (req, res) => {
+  try {
+    const readinessAssessments = await ReadinessAssessment.find().populate('MPersonnel');
+    res.send({ status: "ok", data: readinessAssessments });
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 // Example in Express.js
 app.get('/completedAssessmentsCount', async (req, res) => {
   try {
-      const completedCount = await Assessment.countDocuments({ status_name: "จบการรักษา" });
-      res.json({ count: completedCount });
+    const completedCount = await Assessment.countDocuments({ status_name: "จบการรักษา" });
+    res.json({ count: completedCount });
   } catch (error) {
-      res.status(500).json({ error: 'Error fetching completed assessments count' });
+    res.status(500).json({ error: 'Error fetching completed assessments count' });
   }
 });
+
