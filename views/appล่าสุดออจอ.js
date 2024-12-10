@@ -85,7 +85,6 @@ const Assessment = mongoose.model("Assessment");
 const Chat = mongoose.model("Chat");
 const Alert = mongoose.model("Alert");
 const UserThreshold = mongoose.model("UserThreshold")
-const Assessreadiness = mongoose.model("Assessreadiness")
 const OTPModel = mongoose.model("OTPModel")
 const OTPModelUser = mongoose.model("OTPModelUser")
 
@@ -4276,64 +4275,6 @@ app.get("/diagnosis-count", async (req, res) => {
   } catch (error) {
     console.error("Error counting diagnosis:", error);
     res.json({ status: "error", message: "เกิดข้อผิดพลาดขณะนับ Diagnosis" });
-  }
-});
-
-//ประเมินความพร้อม
-app.post('/submitAssessreadiness/:id', async (req, res) => {
-  const { userId, Readiness1, Readiness2, status_name } = req.body;
-
-  try {
-    const newAssessreadiness = new Assessreadiness({
-      user: userId,
-      Readiness1,
-      Readiness2,
-      status_name,
-    });
-    await newAssessreadiness.save();
-    res.status(201).json({ success: true, message: 'Assessreadiness saved successfully' });
-  } catch (error) {
-    console.error('Error saving Assessreadiness:', error);
-    res.status(500).json({ success: false, message: 'Error saving Assessreadiness' });
-  }
-});
-
-app.get('/getAssessreadiness/:id', async (req, res) => {
-  const userId = req.params.id;
-
-  try {
-    const assessreadinesses = await Assessreadiness.find({ user: userId });
-
-    if (!assessreadinesses || assessreadinesses.length === 0) {
-      return res.status(404).json({ success: false, message: 'No assessments found' });
-    }
-
-    const assessreadinessData = assessreadinesses.map(assessreadiness => ({
-      Readiness1: assessreadiness.Readiness1,
-      Readiness2: assessreadiness.Readiness2,
-      status_name: assessreadiness.status_name,
-      readiness_status: assessreadiness.readiness_status,
-    }));
-
-    res.status(200).json({ success: true, data: assessreadinessData });
-  } catch (error) {
-    console.error('Error retrieving assessments:', error);
-    res.status(500).json({ success: false, message: 'Error retrieving assessments' });
-  }
-});
-
-app.get('/getUserAssessreadiness/:id', async (req, res) => {
-  const userId = req.params.id;
-  try {
-    const assessreadiness = await Assessreadiness.findOne({ user: userId }).select('status_name');
-    if (assessreadiness) {
-      res.status(200).json({ success: true, status_name: assessreadiness.status_name });
-    } else {
-      res.status(404).json({ success: false, message: 'Assessreadiness not found' });
-    }
-  } catch (error) {
-    console.error('Error fetching assessreadiness:', error);
-    res.status(500).json({ success: false, message: 'Error fetching assessreadiness' });
   }
 });
 
