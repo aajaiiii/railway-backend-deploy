@@ -8,7 +8,7 @@ const UserDetailsScehma = new mongoose.Schema(
     surname: String,
     email: { type: String, unique: true },
     password: String,
-    isEmailVerified: { type: Boolean, default: false } 
+    isEmailVerified: { type: Boolean, default: false }
   },
   {
     collection: "Admin",
@@ -29,7 +29,7 @@ const otpSchema = new mongoose.Schema({
 mongoose.model("OTPModel", otpSchema);
 
 const otpuserSchema = new mongoose.Schema({
-  email:  String,
+  email: String,
   otp: String,
   createdAt: { type: Date, default: Date.now, expires: '10m' }
 }, {
@@ -79,7 +79,7 @@ const MPersonnelScehma = new mongoose.Schema(
     nametitle: String,
     name: String,
     surname: String,
-    isEmailVerified: { type: Boolean, default: false } 
+    isEmailVerified: { type: Boolean, default: false }
   },
   {
     collection: "MPersonnel",
@@ -95,7 +95,7 @@ const CaremanualScehma = new mongoose.Schema(
     image: String,
     file: String,
     detail: String,
-    views: { type: Number, default: 0 }, 
+    views: { type: Number, default: 0 },
   },
   {
     collection: "Caremanual",
@@ -124,7 +124,7 @@ const UserScehma = new mongoose.Schema(
     // otpExpiration: { type: Date, default: Date.now, expires: '10m' },
     AdddataFirst: { type: Boolean, default: false },
     physicalTherapy: { type: Boolean, default: false },
-    isEmailVerified: { type: Boolean, default: false } 
+    isEmailVerified: { type: Boolean, default: false }
   },
   {
     collection: "User",
@@ -251,7 +251,7 @@ const chatSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    
+
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
       refPath: 'recipientModel',
@@ -272,7 +272,7 @@ const chatSchema = new mongoose.Schema(
     },
     readAt: Date,
     fileSize: {
-      type: Number, 
+      type: Number,
       default: null,
     },
   },
@@ -380,34 +380,274 @@ const ReadinessAssessmentSchema = new mongoose.Schema({
 mongoose.model('ReadinessAssessment', ReadinessAssessmentSchema);
 
 
-// const AssessinhomesssSchema = new mongoose.Schema({
-//   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-//   Immobility: {
-//     pickUpFood: { type: Number, required: true },
-//     cleanUp: { type: Number, required: true },
-//     putOnClothes: { type: Number, required: true },
-//     shower: { type: Number, required: true },
-//     usingToilet: { type: Number, required: true },
-//     getUp: { type: Number, required: true },
-//     walkInside: { type: Number, required: true },
-//     upDownStairs: { type: Number, required: true },
-//     continenceUrine: { type: Number, required: true },
-//     continenceStool: { type: Number, required: true },
-//     walkOutside: { type: Number, required: true },
-//     cooking: { type: Number, required: true },
-//     householdChores: { type: Number, required: true },
-//     shopping: { type: Number, required: true },
-//     takingPublicTransportation: { type: Number, required: true },
-//     takingMedicine: { type: Number, required: true },
-//     totalScore: { type: Number, required: true }
-//   },
-//   Nutrition: {
+const AssessinhomesssSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
+  Caregiver: [{ type: mongoose.Schema.Types.ObjectId, ref: "Caregiver" }],
+  Immobility:
+  {
+    Pick_up_food: { type: Number, required: true },
+    Clean_up: { type: Number, required: true },
+    Put_on_clothes: { type: Number, required: true },
+    Shower: { type: Number, required: true },
+    Using_the_toilet: { type: Number, required: true },
+    Get_up: { type: Number, required: true },
+    Walk_inside: { type: Number, required: true },
+    Up_down_stairs: { type: Number, required: true },
+    Continence_urine: { type: Number, required: true },
+    Continence_stool: { type: Number, required: true },
+    Walk_outside: { type: Number, required: true },
+    Cooking: { type: Number, required: true },
+    Household_chores: { type: Number, required: true },
+    Shopping: { type: Number, required: true },
+    Taking_public_transportation: { type: Number, required: true },
+    Taking_medicine: { type: Number, required: true },
+    totalScore: { type: Number, required: true }
+  },
+  Nutrition: {
+    gender: { type: String, default: "" }, // เพิ่มเพศ
+    userAge: { type: Number, default: 0 }, // อายุในปี
+    userAgeInMonths: { type: Number, default: 0 }, // อายุในเดือน
+    weight: { type: Number, default: 0 },
+    height: { type: Number, default: 0 },
+    bmr: { type: Number, default: 0 },
+    tdee: { type: Number, default: 0 },
+    activityLevel: { type: String, default: "" },
+    intakeMethod: [{ type: String, default: "" }], // Array of strings
+    foodTypes: [{ type: String, default: "" }], // Array of strings
+    medicalFood: { type: String, default: "" },
+    otherFood: { type: String, default: "" },
+    favoriteFood: { type: String, default: "" },
+    cooks: [{ type: String, default: "" }], // Array of strings
+    nutritionStatus: { type: String, default: "" },
+  },
+  Housing: {
+    houseType: { type: String, default: "" },
+    material: { type: String, default: "" },
+    numFloors: { type: String, default: "" },
+    numRooms: { type: String, default: "" },
+    patientFloor: { type: String, default: "" },
+    cleanliness: { type: String, default: "" },
+    orderliness: { type: String, default: "" },
+    lighting: { type: String, default: "" },
+    ventilation: { type: String, default: "" },
+    homeEnvironment: [{ type: String, default: "" }],
+    homeEnvironment_petType: { type: String, default: "" },
+    otherHomeEnvironment: { type: String, default: "" },
+    neighborRelationship: { type: String, default: "" },
+    numneighbor: { type: String, default: "" },
+    neighborHelp: { type: String, default: "" },
+  },
+  OtherPeople: {
+    existingCaregivers: [{
+      CaregiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'Caregiver' }, // อ้างอิง caregiver ที่มีอยู่
+      firstName: { type: String, default: "" }, // เพิ่มฟิลด์นี้
+      lastName: { type: String, default: "" },  // เพิ่มฟิลด์นี้
+      birthDate: { type: String, default: "" },
+      role: { type: String, default: "" },
+      occupation: { type: String, default: "" },
+      status: { type: String, default: "" },
+      education: { type: String, default: "" },
+      income: { type: String, default: "" },
+      benefit: { type: String, default: "" },
+      ud: { type: String, default: "" },
+      habit: { type: String, default: "" },
+      careDetails: { type: String, default: "" },
+      isNew: { type: Boolean, default: false },
+    }],
+    newCaregivers: [{
+      firstName: { type: String, default: "" },
+      lastName: { type: String, default: "" },
+      birthDate: { type: String, default: "" },
+      role: { type: String, default: "" },
+      occupation: { type: String, default: "" },
+      status: { type: String, default: "" },
+      education: { type: String, default: "" },
+      income: { type: String, default: "" },
+      benefit: { type: String, default: "" },
+      ud: { type: String, default: "" },
+      habit: { type: String, default: "" },
+      careDetails: { type: String, default: "" },
+      isNew: { type: Boolean, default: true },
+    }],
+  },
+  Medication: {
+    prescribedMedication: { type: String, default: "" },
+    actualMedication: { type: String, default: "" },
+    supplements: { type: String, default: "" },
+    administration: { type: String, default: "" },
+    intake: { type: String, default: "" },
+    consistency: { type: String, default: "" },
+  },
+  PhysicalExamination: {
+    temperature: { type: Number, default: null },
+    bloodPressure: { type: String, default: "" },
+    pulse: { type: Number, default: null },
+    respiratoryRate: { type: Number, default: null },
+    generalAppearance: { type: String, default: "" },
+    cardiovascularSystem: { type: String, default: "" },
+    respiratorySystem: { type: String, default: "" },
+    abdominal: { type: String, default: "" },
+    nervousSystem: { type: String, default: "" },
+    extremities: { type: String, default: "" },
+    moodandaffect: [
+      {
+        value: { type: String, default: "" }, // ตัวเลือกที่เลือก
+        isOther: { type: Boolean, default: false },
+         _id: false // ระบุว่าเป็น "อื่นๆ" หรือไม่
+      }
+    ],
+    appearanceAndBehavior: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+    eyeContact: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+    attention: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+    orientation: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+    thoughtProcess: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+    thoughtContent: [
+      {
+        value: { type: String, default: "" },
+        isOther: { type: Boolean, default: false },
+         _id: false
+      }
+    ],
+  },
+  SSS: {
+    Safety: {
+      cleanliness: { type: String, default: "" },
+      floorSafety: { type: String, default: "" },
+      stairsSafety: { type: String, default: "" },
+      handrailSafety: { type: String, default: "" },
+      sharpEdgesSafety: { type: String, default: "" },
+      slipperyFloorSafety: { type: String, default: "" },
+      toiletSafety: { type: String, default: "" },
+      stoveSafety: { type: String, default: "" },
+      storageSafety: { type: String, default: "" },
+      waterSafety: { type: String, default: "" },
+      otherHealthHazards: { type: String, default: "" },
+      emergencyContact: { type: String, default: "" },
+    },
+    SpiritualHealth: {
+      faithBelief: { type: String, default: "" },
+      importance: { type: String, default: "" },
+      community: { type: String, default: "" },
+      addressInCare: { type: String, default: "" },
+      love: { type: String, default: "" },
+      religion: { type: String, default: "" },
+      forgiveness: { type: String, default: "" },
+      hope: { type: String, default: "" },
+      meaningOfLife: { type: String, default: "" },
+    },
+    Service: {
+      serviceLocation: { type: String, default: "" },
+      otherServices: { type: String, default: "" },
+    },
+  },
+  status_inhome: String,
+}, {
+  collection: 'Assessinhomesss',
+  timestamps: true,
+});
+mongoose.model('Assessinhomesss', AssessinhomesssSchema);
 
-//   },
-//   inhome_status: String,
-// }, {
-//   collection: 'Assessinhomesss',
-//   timestamps: true,
-// });
+const AgendaSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  MPersonnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
+  Caregiver: [{ type: mongoose.Schema.Types.ObjectId, ref: "Caregiver" }],
+  newCaregivers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Assessinhomesss" }],
+  PatientAgenda: {
+    patient_idea: { type: String, default: "" },
+    patient_feeling: { type: String, default: "" },
+    patient_funtion: { type: String, default: "" },
+    patient_expectation: { type: String, default: "" },
+  },
+  CaregiverAgenda: {
+    Care_Agenda: [{
+      firstName: { type: String, default: "" }, // เพิ่มฟิลด์นี้
+      lastName: { type: String, default: "" },  // เพิ่มฟิลด์นี้
+      caregiver_idea: { type: String, default: "" },
+      caregiver_feeling: { type: String, default: "" },
+      caregiver_funtion: { type: String, default: "" },
+      caregiver_expectation: { type: String, default: "" },
+    }],
+  },
+  CaregiverAssessment: {
+    Care_Assessment: [{
+      firstName: { type: String, default: "" }, // เพิ่มฟิลด์นี้
+      lastName: { type: String, default: "" },  // เพิ่มฟิลด์นี้
+      care: { type: String, default: "" },
+      affection: { type: String, default: "" },
+      rest: { type: String, default: "" },
+      empathy: { type: String, default: "" },
+      goalOfCare: { type: String, default: "" },
+      information: { type: String, default: "" },
+      ventilation: { type: String, default: "" },
+      empowerment: { type: String, default: "" },
+      resource: { type: String, default: "" },
+    }],
+  },
+  Zaritburdeninterview: {
+    question_1: { type: Number, required: true },
+    question_2: { type: Number, required: true },
+    question_3: { type: Number, required: true },
+    question_4: { type: Number, required: true },
+    question_5: { type: Number, required: true },
+    question_6: { type: Number, required: true },
+    question_7: { type: Number, required: true },
+    question_8: { type: Number, required: true },
+    question_9: { type: Number, required: true },
+    question_10: { type: Number, required: true },
+    question_11: { type: Number, required: true },
+    question_12: { type: Number, required: true },
+    totalScore: { type: Number, required: true }
+  },
+  status_agenda: String,
+}, {
+  collection: 'Agenda',
+  timestamps: true,
+});
+mongoose.model('Agenda', AgendaSchema);
 
-// mongoose.model('Assessinhomesss', AssessinhomesssSchema);
+AssessinhomesssSchema.post('save', async function (doc, next) {
+  const Agenda = mongoose.model('Agenda');
+  const newCaregiverIds = doc.OtherPeople.newCaregivers.map(cg => cg._id);
+
+  try {
+    // Update Agenda collection by adding newCaregiver IDs
+    await Agenda.updateMany(
+      { user: doc.user, MPersonnel: doc.MPersonnel },
+      { $addToSet: { newCaregivers: { $each: newCaregiverIds } } } // อัปเดต newCaregivers
+    );
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
