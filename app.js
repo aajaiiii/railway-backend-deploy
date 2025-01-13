@@ -3157,7 +3157,50 @@ app.get("/getpatientform/:id", async (req, res) => {
 //   }
 // });
 
-const checkAbnormalities = async (data, thresholds, patientFormId, user, isUpdate = false) => {
+// const checkAbnormalities = async (data, thresholds, patientFormId, user, isUpdate = false) => {
+//   let alerts = [];
+
+//   const checkThreshold = (value, key) => {
+//     if (value !== null && value !== undefined) {
+//       const strValue = typeof value === 'string' ? value.trim() : value.toString();
+//       const numValue = parseFloat(strValue);
+//       if (numValue < thresholds[key].min || numValue > thresholds[key].max) {
+//         alerts.push(key);
+//       }
+//     }
+//   };
+
+//   checkThreshold(data.SBP, 'SBP');
+//   checkThreshold(data.DBP, 'DBP');
+//   checkThreshold(data.PulseRate, 'PulseRate');
+//   checkThreshold(data.Temperature, 'Temperature');
+//   checkThreshold(data.DTX, 'DTX');
+//   checkThreshold(data.Respiration, 'Respiration');
+
+//   if (data.Painscore > 5) alerts.push("Painscore สูงกว่า 5");
+
+//   if (alerts.length > 0) {
+//     const prefix = isUpdate ? "มีการแก้ไขการบันทึก แล้วค่า" : "ค่า";
+//     const alertMessage = `${prefix} ${alerts.join(', ')} มีความผิดปกติ`;
+
+//     // ตรวจสอบว่ามีการแจ้งเตือนเดิมอยู่แล้วหรือไม่
+//     const existingAlert = await Alert.findOne({ patientFormId, user });
+//     if (existingAlert) {
+//       // อัปเดตการแจ้งเตือนเดิม
+//       existingAlert.alertMessage = alertMessage;
+//       await existingAlert.save();
+//     } else {
+//       // สร้างการแจ้งเตือนใหม่หากไม่มี
+//       await Alert.create({ patientFormId, alertMessage, user });
+//     }
+
+//     // ส่งการแจ้งเตือนผ่าน WebSocket
+//     io.emit('newAlert', { alertMessage, patientFormId , user});
+//   }
+// };
+
+
+const checkAbnormalities = async (data, thresholds, patientFormId, userId, isUpdate = false) => {
   let alerts = [];
 
   const checkThreshold = (value, key) => {
@@ -3179,26 +3222,43 @@ const checkAbnormalities = async (data, thresholds, patientFormId, user, isUpdat
 
   if (data.Painscore > 5) alerts.push("Painscore สูงกว่า 5");
 
+  if (alerts.length === 0) {
+    await Alert.deleteMany({ patientFormId, user: userId });
+    io.emit('deletedAlert', { patientFormId });
+    return;
+  }
+
   if (alerts.length > 0) {
     const prefix = isUpdate ? "มีการแก้ไขการบันทึก แล้วค่า" : "ค่า";
     const alertMessage = `${prefix} ${alerts.join(', ')} มีความผิดปกติ`;
 
     // ตรวจสอบว่ามีการแจ้งเตือนเดิมอยู่แล้วหรือไม่
-    const existingAlert = await Alert.findOne({ patientFormId, user });
+    const existingAlert = await Alert.findOne({ patientFormId, user: userId });
+    let alert;
     if (existingAlert) {
       // อัปเดตการแจ้งเตือนเดิม
       existingAlert.alertMessage = alertMessage;
-      await existingAlert.save();
+      alert = await existingAlert.save();
     } else {
       // สร้างการแจ้งเตือนใหม่หากไม่มี
-      await Alert.create({ patientFormId, alertMessage, user });
+      alert = await Alert.create({ patientFormId, alertMessage, user: userId });
     }
 
+    // ดึงข้อมูล user เพื่อให้ได้ name และ surname
+    const user = await User.findById(userId).select('name surname');
+    if (!user) throw new Error('User not found');
+
     // ส่งการแจ้งเตือนผ่าน WebSocket
-    io.emit('newAlert', { alertMessage, patientFormId });
+    io.emit('newAlert', {
+      alertMessage,
+      patientFormId,
+      user: { id: userId, name: user.name, surname: user.surname },
+      createdAt: alert.createdAt,
+      updatedAt: alert.updatedAt,
+      viewedBy: alert.viewedBy || [],
+    });
   }
 };
-
 
 
 app.post("/addpatientform", async (req, res) => {
@@ -3291,7 +3351,9 @@ app.put("/updatepatientform/:id", async (req, res) => {
 
     await Alert.updateMany(
       { patientFormId: id }, // เงื่อนไขเพื่อค้นหา Alert ที่เกี่ยวข้อง
-      { $set: { viewedBy: [] } } // รีเซ็ตฟิลด์ viewedBy
+      { $set: { viewedBy: [] ,
+        updatedAt: new Date() 
+      } } // รีเซ็ตฟิลด์ viewedBy
     );
 
     const userThreshold = await UserThreshold.findOne({ user });
@@ -3319,12 +3381,12 @@ app.get("/alerts", async (req, res) => {
   try {
     // Modify the query to exclude users with a deletedAt field
     const alerts = await Alert.find()
+    .sort({ updatedAt: -1 })
       .populate({
         path: 'user',
         select: 'name surname',
         match: { deletedAt: null } 
-      })
-      .sort({ createdAt: -1 });
+      });
 
     // Filter out alerts with no associated user (i.e., deleted users)
     // const filteredAlerts = alerts.filter(alert => alert.user !== null);
@@ -3737,7 +3799,6 @@ app.put("/updateassessment/:id", async (req, res) => {
       io.emit('deletedAlert', { patientFormId: assessment.PatientForm._id, alertMessage: 'เป็นเคสฉุกเฉิน' });
 
     }
-
     // ถ้าเป็นเคสฉุกเฉินให้สร้าง alert ใหม่
     if (status_name === 'เคสฉุกเฉิน' && previousStatus !== 'เคสฉุกเฉิน') {
       const alertMessage = `เป็นเคสฉุกเฉิน`;

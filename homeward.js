@@ -377,6 +377,7 @@ const AlertSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
+    
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -384,7 +385,7 @@ const AlertSchema = new mongoose.Schema(
     },
     viewedBy: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
+      ref: "MPersonnel"
     }]
   },
   {
