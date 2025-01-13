@@ -16,13 +16,15 @@ const { google } = require("googleapis");
 const axios = require('axios');
 const crypto = require('crypto');
 const refreshTokens = [];
-
+const session = require('express-session');
 const http = require('http');
 const socketIo = require('socket.io');
 const server = http.createServer(app);
+const cron = require("node-cron");
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.2.57:8081","http://localhost:3001"], // ให้แน่ใจว่าใส่ URL ของ front-end app
+    origin: "*",
+    // origin: ["http://localhost:3000", "http://192.168.2.57:8081","http://localhost:3001"], // ให้แน่ใจว่าใส่ URL ของ front-end app
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
     credentials: true,
@@ -57,6 +59,12 @@ const JWT_SECRET =
 const mongoUrl =
   "mongodb+srv://sasithornsorn:Sasi12345678@cluster0.faewtst.mongodb.net/?retryWrites=true&w=majority";
 
+  app.use(session({
+    secret: '127iluvuhokdkiijijijiejfiejfiejfiopoq/*-/+4554#@@!&&*(((()))))))((**&^&',  // เปลี่ยนเป็นคีย์ที่ปลอดภัย
+    resave: false,
+    saveUninitialized: true,
+  }));
+
 mongoose
   .connect(mongoUrl, {
     dbName: "Homeward",
@@ -89,6 +97,20 @@ const ReadinessForm = mongoose.model("ReadinessForm")
 const ReadinessAssessment = mongoose.model("ReadinessAssessment")
 const OTPModel = mongoose.model("OTPModel")
 const OTPModelUser = mongoose.model("OTPModelUser")
+const DefaultThreshold = mongoose.model("DefaultThreshold")
+const Room = mongoose.model("Room");
+
+//ลบข้อมูล user ที่เกิน 30 วัน ทุก เที่ยงคืน
+cron.schedule("0 0 * * *", async () => {
+  try {
+    console.log("Running cron job to delete expired users...");
+    const now = new Date();
+    const result = await User.deleteMany({ deleteExpiry: { $lte: now } }); // ลบข้อมูลที่หมดอายุ
+    console.log(`Deleted ${result.deletedCount} expired users.`);
+  } catch (error) {
+    console.error("Error in cron job:", error);
+  }
+});
 
 app.post("/addadmin", async (req, res) => {
   const { username, name, surname, email, password, confirmPassword } = req.body;
@@ -454,9 +476,11 @@ app.post("/forgot-password", async (req, res) => {
 
     transporter.sendMail(mailOptions, function (error, info) {
       if (error) {
-        console.log(error);
+        return res.status(500).json({ status: "Error sending email" });
       } else {
         console.log("Email sent: " + info.response);
+        return res.status(200).json({ status: "check your emailbox" });
+
       }
     });
 
@@ -507,11 +531,31 @@ app.post("/reset-password/:id/:token", async (req, res) => {
         },
       }
     );
-
-    res.render("index", { email: verify.email, status: "verified" });
+    req.session.successMessage = "Password successfully reset!";
+    req.session.email = verify.email;
+    res.redirect("/success");
+    // res.redirect(`/success?email=${verify.email}&message=Password%20successfully%20reset`);
+    // res.render("index", { email: verify.email, status: "verified" });
   } catch (error) {
     console.log(error);
     res.send({ status: "เกิดข้อผิดพลาดบางอย่าง" });
+  }
+});
+
+app.get("/success", (req, res) => {
+  if (req.session.successMessage && req.session.email) {
+    const { successMessage, email } = req.session;
+
+    // ล้างข้อมูล session หลังจากการแสดงผลหน้า success
+    req.session.destroy((err) => {
+      if (err) {
+        console.log("Error destroying session:", err);
+      }
+    });
+
+    res.render("success", { message: successMessage, email: email });
+  } else {
+    res.redirect("/");  // ถ้าไม่พบข้อมูลใน session ก็รีไดเร็กต์ไปหน้าอื่น
   }
 });
 
@@ -778,6 +822,18 @@ app.post("/addmpersonnel", async (req, res) => {
       name,
       surname,
     });
+
+        // ดึงผู้ป่วยทั้งหมดจากระบบ
+        const allUsers = await User.find({ deletedAt: null });
+  
+        for (const user of allUsers) {
+          const room = await Room.findOne({ roomId: user._id });
+    
+          if (room) {
+            room.participants.push({ id: MPersonnel._id, model: "MPersonnel" }); // เพิ่มแพทย์เข้าไปใน Room
+            await room.save(); // บันทึกการเปลี่ยนแปลง Room
+          }
+        }
     res.send({ status: "ok" });
   } catch (error) {
     res.send({ status: "error", error: error.message });
@@ -1640,12 +1696,13 @@ app.post("/forgot-passworddt", async (req, res) => {
 
     transporter.sendMail(mailOptions, function (error, info) {
       if (error) {
-        console.log(error);
+        return res.status(500).json({ status: "Error sending email" });
       } else {
         console.log("Email sent: " + info.response);
+        return res.status(200).json({ status: "check your emailbox" });
+
       }
     });
-
     console.log(link);
   } catch (error) { }
 });
@@ -1694,8 +1751,11 @@ app.post("/reset-passworddt/:id/:token", async (req, res) => {
         },
       }
     );
+    req.session.successMessage = "Password successfully reset!";
+    req.session.email = verify.email;
+    res.redirect("/success");
 
-    res.render("indexdt", { email: verify.email, status: "verified" });
+    // res.render("indexdt", { email: verify.email, status: "verified" });
   } catch (error) {
     console.log(error);
     res.send({ status: "Somthing went wrong" });
@@ -1875,7 +1935,78 @@ app.get("/searchadmin", async (req, res) => {
 //     res.send({ status: "error", error: error.message });
 //   }
 // });
+async function initializeDefaultThreshold() {
+  try {
+    // ตรวจสอบว่ามี DefaultThreshold ในฐานข้อมูลหรือยัง
+    const existingThreshold = await DefaultThreshold.findOne();
+    if (!existingThreshold) {
+      // หากไม่มี ให้สร้างค่าเริ่มต้น
+      const defaultThreshold = new DefaultThreshold({
+        SBP: { min: 90, max: 140 },
+        DBP: { min: 60, max: 90 },
+        PulseRate: { min: 60, max: 100 },
+        Temperature: { min: 36.5, max: 37.5 },
+        DTX: { min: 80, max: 180 },
+        Respiration: { min: 16, max: 20 },
+        Painscore: 5,
+      });
+      await defaultThreshold.save();
+      console.log('Default threshold initialized successfully');
+    } else {
+      console.log('Default threshold already exists');
+    }
+  } catch (error) {
+    console.error('Error initializing default threshold:', error);
+  }
+}
 
+// เรียกฟังก์ชันตอนเซิร์ฟเวอร์เริ่มทำงาน
+initializeDefaultThreshold();
+
+const initializeRooms = async () => {
+  try {
+    // ดึงรายชื่อแพทย์ทั้งหมด
+    const allPersonnel = await MPersonnel.find({ deletedAt: null });
+
+    if (!allPersonnel.length) {
+      console.log("No personnel found. Skipping room creation.");
+      return;
+    }
+
+    // ค้นหา User ที่ยังไม่มี Room
+    const usersWithoutRoom = await User.find({
+      deletedAt: null,
+      _id: { $nin: (await Room.find({}).distinct("roomId")) },
+    });
+
+    if (!usersWithoutRoom.length) {
+      console.log("All users already have rooms.");
+      return;
+    }
+
+
+
+    // สร้าง Room สำหรับผู้ใช้เหล่านั้น
+    const roomsToCreate = usersWithoutRoom.map((user) => ({
+      roomId: user._id,
+      participants: [
+        { id: user._id, model: "User" }, // เพิ่มผู้ใช้
+        ...allPersonnel.map((personnel) => ({
+          id: personnel._id,
+          model: "MPersonnel",
+        })), // เพิ่มแพทย์ทุกคน
+      ],
+    }));
+
+    // บันทึก Room ทั้งหมด
+    await Room.insertMany(roomsToCreate);
+    console.log(`Created ${roomsToCreate.length} rooms for users.`);
+  } catch (error) {
+    console.error("Error initializing rooms:", error);
+  }
+};
+
+initializeRooms();
 //ไปอัปเดตอันที่เคยลบไป
 app.post("/adduser", async (req, res) => {
   const { username, name, surname, tel, email, physicalTherapy } = req.body;
@@ -1923,7 +2054,43 @@ app.post("/adduser", async (req, res) => {
         physicalTherapy: physicalTherapy || false,
       });
     }
+   // ดึงค่า DefaultThreshold จากฐานข้อมูล
+   const defaultThreshold = await DefaultThreshold.findOne();
 
+   if (!defaultThreshold) {
+     return res.status(500).json({
+       status: "error",
+       message: "Default threshold not set. Please configure it first.",
+     });
+   }
+
+   // สร้าง threshold ค่าเริ่มต้นสำหรับผู้ใช้ใหม่
+   const userThreshold = {
+     user: user._id,
+     SBP: defaultThreshold.SBP,
+     DBP: defaultThreshold.DBP,
+     PulseRate: defaultThreshold.PulseRate,
+     Temperature: defaultThreshold.Temperature,
+     DTX: defaultThreshold.DTX,
+     Respiration: defaultThreshold.Respiration,
+     Painscore: defaultThreshold.Painscore,
+   };
+   await UserThreshold.create(userThreshold);
+   
+      // ดึงรายชื่อแพทย์ทั้งหมด
+      const allPersonnel = await MPersonnel.find({ deletedAt: null });
+
+      // สร้าง Room ใหม่
+      const room = {
+        roomId: user._id, // ใช้ _id ของผู้ป่วยเป็น Room ID
+        participants: [
+          { id: user._id, model: "User" }, // เพิ่มผู้ป่วยเข้า Room
+          ...allPersonnel.map((personnel) => ({ id: personnel._id, model: "MPersonnel" })), // เพิ่มแพทย์ทุกคนเข้า Room
+        ],
+
+      };
+  
+      await Room.create(room); // บันทึก Room ลงฐานข้อมูล
     res.send({ status: "ok", user }); // ส่งข้อมูลผู้ใช้กลับไปด้วย
   } catch (error) {
     console.error("Error creating user:", error);
@@ -2142,6 +2309,82 @@ app.post("/userdata", async (req, res) => {
 });
 
 //เพิ่มข้อมูลครั้งแรก
+// app.post('/updateuserinfo', async (req, res) => {
+//   const {
+//     username,
+//     name,
+//     surname,
+//     tel,
+//     email,
+//     gender,
+//     birthday,
+//     ID_card_number,
+//     nationality,
+//     Address,
+//     user, // id ของ user ที่จะใช้อัพเดต caregiver
+//     Relationship,
+//     caregivername,
+//     caregiversurname,
+//     caregivertel,
+//   } = req.body;
+
+//   try {
+//     if (username) {
+//       // แก้ไขข้อมูลของ User
+//       await User.updateOne(
+//         { username },
+//         {
+//           $set: {
+//             name,
+//             surname,
+//             tel,
+//             email,
+//             gender,
+//             birthday,
+//             ID_card_number,
+//             nationality,
+//             Address,
+//             AdddataFirst: true,
+//           },
+//         }
+//       );
+
+//       // ตรวจสอบว่ามี Caregiver อยู่แล้วหรือไม่
+//       const caregiver = await Caregiver.findOne({ user });
+//       if (caregiver) {
+//         // แก้ไขข้อมูลของ Caregiver ที่มีอยู่แล้ว
+//         await Caregiver.updateOne(
+//           { user },
+//           {
+//             $set: {
+//               name: caregivername,
+//               surname: caregiversurname,
+//               tel: caregivertel,
+//               Relationship,
+//             },
+//           }
+//         );
+//         res.send({ status: 'Ok', data: 'User and Caregiver Updated' });
+//       } else {
+//         // สร้าง Caregiver ใหม่หากไม่พบ
+//         await Caregiver.create({
+//           user,
+//           name: caregivername,
+//           surname: caregiversurname,
+//           tel: caregivertel,
+//           Relationship,
+//         });
+//         res.send({ status: 'Ok', data: 'User Updated, Caregiver Created' });
+//       }
+//     } else {
+//       res.status(400).send({ error: 'Invalid request data' });
+//     }
+//   } catch (error) {
+//     console.error('Error updating user or caregiver:', error);
+//     return res.status(500).send({ error: 'Error updating user or caregiver' });
+//   }
+// });
+
 app.post('/updateuserinfo', async (req, res) => {
   const {
     username,
@@ -2154,11 +2397,8 @@ app.post('/updateuserinfo', async (req, res) => {
     ID_card_number,
     nationality,
     Address,
-    user, // id ของ user ที่จะใช้อัพเดต caregiver
-    Relationship,
-    caregivername,
-    caregiversurname,
-    caregivertel,
+    user, // id ของ user
+    caregivers, // array ของข้อมูลผู้ดูแล
   } = req.body;
 
   try {
@@ -2182,42 +2422,45 @@ app.post('/updateuserinfo', async (req, res) => {
         }
       );
 
-      // ตรวจสอบว่ามี Caregiver อยู่แล้วหรือไม่
-      const caregiver = await Caregiver.findOne({ user });
-      if (caregiver) {
-        // แก้ไขข้อมูลของ Caregiver ที่มีอยู่แล้ว
-        await Caregiver.updateOne(
-          { user },
-          {
-            $set: {
-              name: caregivername,
-              surname: caregiversurname,
-              tel: caregivertel,
-              Relationship,
-            },
-          }
-        );
-        res.send({ status: 'Ok', data: 'User and Caregiver Updated' });
-      } else {
-        // สร้าง Caregiver ใหม่หากไม่พบ
-        await Caregiver.create({
+      for (const caregiver of caregivers) {
+        const existingCaregiver = await Caregiver.findOne({
           user,
-          name: caregivername,
-          surname: caregiversurname,
-          tel: caregivertel,
-          Relationship,
+          name: caregiver.caregivername,
         });
-        res.send({ status: 'Ok', data: 'User Updated, Caregiver Created' });
+
+        if (existingCaregiver) {
+          // อัปเดตข้อมูลผู้ดูแลที่มีอยู่
+          await Caregiver.updateOne(
+            { user, name: caregiver.caregivername },
+            {
+              $set: {
+                surname: caregiver.caregiversurname,
+                tel: caregiver.caregivertel,
+                Relationship: caregiver.Relationship,
+              },
+            }
+          );
+        } else {
+          // เพิ่มผู้ดูแลใหม่
+          await Caregiver.create({
+            user,
+            name: caregiver.caregivername,
+            surname: caregiver.caregiversurname,
+            tel: caregiver.caregivertel,
+            Relationship: caregiver.Relationship,
+          });
+        }
       }
+
+      res.send({ status: 'Ok', data: 'User and Caregivers Updated' });
     } else {
       res.status(400).send({ error: 'Invalid request data' });
     }
   } catch (error) {
-    console.error('Error updating user or caregiver:', error);
-    return res.status(500).send({ error: 'Error updating user or caregiver' });
+    console.error('Error updating user or caregivers:', error);
+    return res.status(500).send({ error: 'Error updating user or caregivers' });
   }
 });
-
 
 
 //ลืมรหัสผ่าน
@@ -2354,6 +2597,30 @@ app.post("/updateuserinfo/:id", async (req, res) => {
 });
 
 //ดึงข้อมูลผู้ดูแล
+// app.get("/getcaregiver/:id", async (req, res) => {
+//   const { id } = req.params;
+//   try {
+//     if (!id) {
+//       return res.status(400).send({
+//         status: "error",
+//         message: "id is required",
+//       });
+//     }
+//     const Caregiverinfo = await Caregiver.findOne({ user: id });
+//     if (!Caregiverinfo) {
+//       return res
+//         .status(404)
+//         .send({
+//           status: "error",
+//           message: "not found for this user",
+//         });
+//     }
+//     res.send({ status: "ok", data: Caregiverinfo });
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).send({ status: "error", message: "Internal Server Error" });
+//   }
+// });
 app.get("/getcaregiver/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -2363,21 +2630,21 @@ app.get("/getcaregiver/:id", async (req, res) => {
         message: "id is required",
       });
     }
-    const Caregiverinfo = await Caregiver.findOne({ user: id });
-    if (!Caregiverinfo) {
-      return res
-        .status(404)
-        .send({
-          status: "error",
-          message: "not found for this user",
-        });
+    // ค้นหาผู้ดูแลทั้งหมดที่เกี่ยวข้องกับ user
+    const caregivers = await Caregiver.find({ user: id });
+    if (!caregivers || caregivers.length === 0) {
+      return res.status(404).send({
+        status: "error",
+        message: "No caregivers found for this user",
+      });
     }
-    res.send({ status: "ok", data: Caregiverinfo });
+    res.send({ status: "ok", data: caregivers });
   } catch (error) {
     console.log(error);
     res.status(500).send({ status: "error", message: "Internal Server Error" });
   }
 });
+
 //แก้ไขผู้ป่วย แอป
 app.post("/updateuserapp", async (req, res) => {
   const {
@@ -2494,19 +2761,122 @@ app.post("/updatepassuser", async (req, res) => {
     return res.status(500).send({ error: "Error updating user" });
   }
 });
+app.get('/get-default-threshold', async (req, res) => {
+  try {
+    // ดึงข้อมูล DefaultThreshold จากฐานข้อมูล
+    const defaultThreshold = await DefaultThreshold.findOne();  // หาค่าที่บันทึกไว้ใน collection
+    if (!defaultThreshold) {
+      return res.status(404).json({ status: 'error', message: 'Default threshold not found' });
+    }
+    res.json({ status: 'success', data: defaultThreshold });
+  } catch (error) {
+    console.error('Error fetching default threshold:', error);
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+});
 
+//อันแก้แค่ค่าเริ่มต้นเพื่อนำไปใช้ผู้ใช้ใหม่
+// app.post('/update-default-threshold', async (req, res) => {
+//   const { min, max, painscore } = req.body; 
+//   try {
+//     // ตรวจสอบว่า DefaultThreshold มีอยู่หรือไม่
+//     let defaultThreshold = await DefaultThreshold.findOne();
+//     if (!defaultThreshold) {
+//       defaultThreshold = new DefaultThreshold();
+//     }
+
+//     // อัปเดตค่า Threshold
+//     defaultThreshold.SBP = { min: parseFloat(min.SBP), max: parseFloat(max.SBP) };
+//     defaultThreshold.DBP = { min: parseFloat(min.DBP), max: parseFloat(max.DBP) };
+//     defaultThreshold.PulseRate = { min: parseFloat(min.PulseRate), max: parseFloat(max.PulseRate) };
+//     defaultThreshold.Temperature = { min: parseFloat(min.Temperature), max: parseFloat(max.Temperature) };
+//     defaultThreshold.DTX = { min: parseFloat(min.DTX), max: parseFloat(max.DTX) };
+//     defaultThreshold.Respiration = { min: parseFloat(min.Respiration), max: parseFloat(max.Respiration) };
+//     defaultThreshold.Painscore = painscore || 5; 
+//     await defaultThreshold.save();
+//     res.json({ status: 'success', message: 'Default threshold updated successfully' });
+//   } catch (error) {
+//     console.error('Error updating default threshold:', error);
+//     res.status(500).json({ status: 'error', message: 'Internal server error' });
+//   }
+// });
 
 const threshold = {
   SBP: { min: 90, max: 140 },
   DBP: { min: 60, max: 90 },
   PulseRate: { min: 60, max: 100 },
   Temperature: { min: 36.5, max: 37.5 },
-  DTX: { min: 70, max: 110 },
-  Respiration: { min: 16, max: 20 }
+  DTX: { min: 80, max: 180 },
+  Respiration: { min: 16, max: 20 },
+  Painscore:5,
 };
 
+//แบบแก้ค่าเริ่มต้นที่ยังไม่ได้แก้ไขรายบุคคลทั้งระบบ ตรงตรงทุกอันถึงจะเปลี่ยน
+app.post('/update-default-threshold', async (req, res) => {
+  const { min, max, painscore } = req.body;
+
+  try {
+    // ตรวจสอบว่า DefaultThreshold มีอยู่หรือไม่
+    let defaultThreshold = await DefaultThreshold.findOne();
+    if (!defaultThreshold) {
+      defaultThreshold = new DefaultThreshold();
+    }
+
+    // เก็บค่าของ DefaultThreshold เก่าไว้เพื่อใช้เปรียบเทียบ
+    const previousDefaultThreshold = { ...defaultThreshold.toObject() };
+
+    // อัปเดตค่า Threshold ใหม่
+    defaultThreshold.SBP = { min: parseFloat(min.SBP), max: parseFloat(max.SBP) };
+    defaultThreshold.DBP = { min: parseFloat(min.DBP), max: parseFloat(max.DBP) };
+    defaultThreshold.PulseRate = { min: parseFloat(min.PulseRate), max: parseFloat(max.PulseRate) };
+    defaultThreshold.Temperature = { min: parseFloat(min.Temperature), max: parseFloat(max.Temperature) };
+    defaultThreshold.DTX = { min: parseFloat(min.DTX), max: parseFloat(max.DTX) };
+    defaultThreshold.Respiration = { min: parseFloat(min.Respiration), max: parseFloat(max.Respiration) };
+    defaultThreshold.Painscore = painscore || 5;
+
+    // บันทึก DefaultThreshold ใหม่
+    await defaultThreshold.save();
+
+    // อัปเดต UserThresholds ถ้าค่าปัจจุบันตรงกับ DefaultThreshold เก่า
+    const updatedFields = ['SBP', 'DBP', 'PulseRate', 'Temperature', 'DTX', 'Respiration', 'Painscore'];
+    const matchConditions = updatedFields.reduce((acc, field) => {
+      if (typeof previousDefaultThreshold[field] === 'object') {
+        acc[`${field}.min`] = previousDefaultThreshold[field].min;
+        acc[`${field}.max`] = previousDefaultThreshold[field].max;
+      } else {
+        acc[field] = previousDefaultThreshold[field];
+      }
+      return acc;
+    }, {});
+
+    await UserThreshold.updateMany(
+      matchConditions,
+      {
+        $set: {
+          SBP: { min: parseFloat(min.SBP), max: parseFloat(max.SBP) },
+          DBP: { min: parseFloat(min.DBP), max: parseFloat(max.DBP) },
+          PulseRate: { min: parseFloat(min.PulseRate), max: parseFloat(max.PulseRate) },
+          Temperature: { min: parseFloat(min.Temperature), max: parseFloat(max.Temperature) },
+          DTX: { min: parseFloat(min.DTX), max: parseFloat(max.DTX) },
+          Respiration: { min: parseFloat(min.Respiration), max: parseFloat(max.Respiration) },
+          Painscore: painscore || 5,
+        },
+      }
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Default threshold and matching user thresholds updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating default threshold:', error);
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+});
+
+
 app.post("/update-threshold", async (req, res) => {
-  const { userId, min, max } = req.body;
+  const { userId, min, max,painscore } = req.body;
   try {
     let userThreshold = await UserThreshold.findOne({ user: userId });
     if (!userThreshold) {
@@ -2518,7 +2888,7 @@ app.post("/update-threshold", async (req, res) => {
     userThreshold.Temperature = { min: parseFloat(min.Temperature), max: parseFloat(max.Temperature) };
     userThreshold.DTX = { min: parseFloat(min.DTX), max: parseFloat(max.DTX) };
     userThreshold.Respiration = { min: parseFloat(min.Respiration), max: parseFloat(max.Respiration) };
-
+    userThreshold.Painscore = parseFloat(painscore);
     await userThreshold.save();
     res.json({ status: "success" });
   } catch (error) {
@@ -2526,6 +2896,7 @@ app.post("/update-threshold", async (req, res) => {
     res.status(500).json({ status: "error" });
   }
 });
+
 
 
 app.post('/get-threshold', async (req, res) => {
@@ -2553,7 +2924,8 @@ app.post('/get-threshold', async (req, res) => {
           Temperature: userThreshold.Temperature.max,
           DTX: userThreshold.DTX.max,
           Respiration: userThreshold.Respiration.max
-        }
+        },
+        Painscore:userThreshold.Painscore,
       });
     }
   } catch (error) {
@@ -2561,6 +2933,273 @@ app.post('/get-threshold', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 });
+
+// app.post("/addpatientform", async (req, res) => {
+//   const {
+//     Symptoms,
+//     SBP,
+//     DBP,
+//     PulseRate,
+//     Temperature,
+//     DTX,
+//     Respiration,
+//     LevelSymptom,
+//     Painscore,
+//     request_detail,
+//     Recorder,
+//     user
+//   } = req.body;
+
+//   try {
+//     const patientForm = new PatientForm({
+//       Symptoms,
+//       SBP: SBP.trim() !== '' ? SBP : null,
+//       DBP: DBP.trim() !== '' ? DBP : null,
+//       PulseRate: PulseRate.trim() !== '' ? PulseRate : null,
+//       Temperature: Temperature.trim() !== '' ? Temperature : null,
+//       DTX: DTX.trim() !== '' ? DTX : null,
+//       Respiration: Respiration.trim() !== '' ? Respiration : null,
+//       LevelSymptom,
+//       Painscore,
+//       request_detail,
+//       Recorder,
+//       user,
+//     });
+
+//     await patientForm.save();
+
+//     const userThreshold = await UserThreshold.findOne({ user });
+//     const thresholds = userThreshold || threshold;
+
+//     let alerts = [];
+
+//     if (SBP && SBP.trim() !== '') {
+//       const SBPValue = parseFloat(SBP);
+//       if (SBPValue < thresholds.SBP.min || SBPValue > thresholds.SBP.max) {
+//         alerts.push("ความดันตัวบน");
+//       }
+//     }
+
+//     if (DBP && DBP.trim() !== '') {
+//       const DBPValue = parseFloat(DBP);
+//       if (DBPValue < thresholds.DBP.min || DBPValue > thresholds.DBP.max) {
+//         alerts.push("ความดันตัวล่าง");
+//       }
+//     }
+
+//     if (PulseRate && PulseRate.trim() !== '') {
+//       const PulseRateValue = parseFloat(PulseRate);
+//       if (PulseRateValue < thresholds.PulseRate.min || PulseRateValue > thresholds.PulseRate.max) {
+//         alerts.push("ชีพจร");
+//       }
+//     }
+
+//     if (Temperature && Temperature.trim() !== '') {
+//       const TemperatureValue = parseFloat(Temperature);
+//       if (TemperatureValue < thresholds.Temperature.min || TemperatureValue > thresholds.Temperature.max) {
+//         alerts.push("อุณหภูมิ");
+//       }
+//     }
+
+//     if (DTX && DTX.trim() !== '') {
+//       const DTXValue = parseFloat(DTX);
+//       if (DTXValue < thresholds.DTX.min || DTXValue > thresholds.DTX.max) {
+//         alerts.push("ระดับน้ำตาลในเลือด");
+//       }
+//     }
+
+//     if (Respiration && Respiration.trim() !== '') {
+//       const RespirationValue = parseFloat(Respiration);
+//       if (RespirationValue < thresholds.Respiration.min || RespirationValue > thresholds.Respiration.max) {
+//         alerts.push("การหายใจ");
+//       }
+//     }
+//     if (Painscore > 5) {
+//       alerts.push("Painscore สูงกว่า 5"); // การแจ้งเตือนหาก Painscore มากกว่า 5
+//     }
+
+//     if (alerts.length > 0) {
+//       const alertMessage = `ค่า ${alerts.join(', ')} มีความผิดปกติ`;
+//       await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
+    
+//       io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
+
+//     }
+
+//     res.send({ status: "ok", patientForm });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send({ status: "error", message: error.message });
+//   }
+// });
+
+
+app.get("/getpatientform/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const patientForm = await PatientForm.findById(id).exec();
+    if (!patientForm) {
+      return res.status(404).send({ status: "error", message: "Patient form not found" });
+    }
+
+    res.send({ status: "ok", patientForm });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ status: "error", message: error.message });
+  }
+});
+
+
+// app.put("/updatepatientform/:id", async (req, res) => {
+//   const {
+//     Symptoms,
+//     SBP,
+//     DBP,
+//     PulseRate,
+//     Temperature,
+//     DTX,
+//     Respiration,
+//     LevelSymptom,
+//     Painscore,
+//     request_detail,
+//     Recorder,
+//     user
+//   } = req.body;
+
+//   const { id } = req.params;
+
+//   try {
+//     const updatedFields = {
+//       Symptoms,
+//       SBP: SBP !== '' ? SBP : null,
+//       DBP: DBP !== '' ? DBP : null,
+//       PulseRate: PulseRate !== '' ? PulseRate : null,
+//       Temperature: Temperature !== '' ? Temperature : null,
+//       DTX: DTX !== '' ? DTX : null,
+//       Respiration: Respiration !== '' ? Respiration : null,
+//       LevelSymptom,
+//       Painscore,
+//       request_detail,
+//       Recorder,
+//       user,
+//     };
+
+//     Object.keys(updatedFields).forEach(key => updatedFields[key] === undefined && delete updatedFields[key]);
+
+//     const patientForm = await PatientForm.findByIdAndUpdate(id, updatedFields, { new: true });
+
+//     if (!patientForm) {
+//       return res.status(404).send({ status: "error", message: "Patient form not found" });
+//     }
+
+//     const userThreshold = await UserThreshold.findOne({ user });
+//     const thresholds = userThreshold || threshold;
+
+//     let alerts = [];
+
+//     const isString = value => typeof value === 'string';
+
+//     if (SBP && isString(SBP) && SBP.trim() !== '') {
+//       const SBPValue = parseFloat(SBP);
+//       if (SBPValue < thresholds.SBP.min || SBPValue > thresholds.SBP.max) {
+//         alerts.push("ความดันตัวบน");
+//       }
+//     }
+
+//     if (DBP && isString(DBP) && DBP.trim() !== '') {
+//       const DBPValue = parseFloat(DBP);
+//       if (DBPValue < thresholds.DBP.min || DBPValue > thresholds.DBP.max) {
+//         alerts.push("ความดันตัวล่าง");
+//       }
+//     }
+
+//     if (PulseRate && isString(PulseRate) && PulseRate.trim() !== '') {
+//       const PulseRateValue = parseFloat(PulseRate);
+//       if (PulseRateValue < thresholds.PulseRate.min || PulseRateValue > thresholds.PulseRate.max) {
+//         alerts.push("ชีพจร");
+//       }
+//     }
+
+//     if (Temperature && isString(Temperature) && Temperature.trim() !== '') {
+//       const TemperatureValue = parseFloat(Temperature);
+//       if (TemperatureValue < thresholds.Temperature.min || TemperatureValue > thresholds.Temperature.max) {
+//         alerts.push("อุณหภูมิ");
+//       }
+//     }
+
+//     if (DTX && isString(DTX) && DTX.trim() !== '') {
+//       const DTXValue = parseFloat(DTX);
+//       if (DTXValue < thresholds.DTX.min || DTXValue > thresholds.DTX.max) {
+//         alerts.push("ระดับน้ำตาลในเลือด");
+//       }
+//     }
+
+//     if (Respiration && isString(Respiration) && Respiration.trim() !== '') {
+//       const RespirationValue = parseFloat(Respiration);
+//       if (RespirationValue < thresholds.Respiration.min || RespirationValue > thresholds.Respiration.max) {
+//         alerts.push("การหายใจ");
+//       }
+//     }
+
+//     if (alerts.length > 0) {
+//       const alertMessage = `มีการแก้ไขการบันทึก แล้วค่า ${alerts.join(', ')} มีความผิดปกติ`;
+//       await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
+      
+//       io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
+
+//     }
+
+//     res.send({ status: "ok", patientForm });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send({ status: "error", message: error.message });
+//   }
+// });
+
+const checkAbnormalities = async (data, thresholds, patientFormId, user, isUpdate = false) => {
+  let alerts = [];
+
+  const checkThreshold = (value, key) => {
+    if (value !== null && value !== undefined) {
+      const strValue = typeof value === 'string' ? value.trim() : value.toString();
+      const numValue = parseFloat(strValue);
+      if (numValue < thresholds[key].min || numValue > thresholds[key].max) {
+        alerts.push(key);
+      }
+    }
+  };
+
+  checkThreshold(data.SBP, 'SBP');
+  checkThreshold(data.DBP, 'DBP');
+  checkThreshold(data.PulseRate, 'PulseRate');
+  checkThreshold(data.Temperature, 'Temperature');
+  checkThreshold(data.DTX, 'DTX');
+  checkThreshold(data.Respiration, 'Respiration');
+
+  if (data.Painscore > 5) alerts.push("Painscore สูงกว่า 5");
+
+  if (alerts.length > 0) {
+    const prefix = isUpdate ? "มีการแก้ไขการบันทึก แล้วค่า" : "ค่า";
+    const alertMessage = `${prefix} ${alerts.join(', ')} มีความผิดปกติ`;
+
+    // ตรวจสอบว่ามีการแจ้งเตือนเดิมอยู่แล้วหรือไม่
+    const existingAlert = await Alert.findOne({ patientFormId, user });
+    if (existingAlert) {
+      // อัปเดตการแจ้งเตือนเดิม
+      existingAlert.alertMessage = alertMessage;
+      await existingAlert.save();
+    } else {
+      // สร้างการแจ้งเตือนใหม่หากไม่มี
+      await Alert.create({ patientFormId, alertMessage, user });
+    }
+
+    // ส่งการแจ้งเตือนผ่าน WebSocket
+    io.emit('newAlert', { alertMessage, patientFormId });
+  }
+};
+
+
 
 app.post("/addpatientform", async (req, res) => {
   const {
@@ -2599,57 +3238,7 @@ app.post("/addpatientform", async (req, res) => {
     const userThreshold = await UserThreshold.findOne({ user });
     const thresholds = userThreshold || threshold;
 
-    let alerts = [];
-
-    if (SBP && SBP.trim() !== '') {
-      const SBPValue = parseFloat(SBP);
-      if (SBPValue < thresholds.SBP.min || SBPValue > thresholds.SBP.max) {
-        alerts.push("ความดันตัวบน");
-      }
-    }
-
-    if (DBP && DBP.trim() !== '') {
-      const DBPValue = parseFloat(DBP);
-      if (DBPValue < thresholds.DBP.min || DBPValue > thresholds.DBP.max) {
-        alerts.push("ความดันตัวล่าง");
-      }
-    }
-
-    if (PulseRate && PulseRate.trim() !== '') {
-      const PulseRateValue = parseFloat(PulseRate);
-      if (PulseRateValue < thresholds.PulseRate.min || PulseRateValue > thresholds.PulseRate.max) {
-        alerts.push("ชีพจร");
-      }
-    }
-
-    if (Temperature && Temperature.trim() !== '') {
-      const TemperatureValue = parseFloat(Temperature);
-      if (TemperatureValue < thresholds.Temperature.min || TemperatureValue > thresholds.Temperature.max) {
-        alerts.push("อุณหภูมิ");
-      }
-    }
-
-    if (DTX && DTX.trim() !== '') {
-      const DTXValue = parseFloat(DTX);
-      if (DTXValue < thresholds.DTX.min || DTXValue > thresholds.DTX.max) {
-        alerts.push("ระดับน้ำตาลในเลือด");
-      }
-    }
-
-    if (Respiration && Respiration.trim() !== '') {
-      const RespirationValue = parseFloat(Respiration);
-      if (RespirationValue < thresholds.Respiration.min || RespirationValue > thresholds.Respiration.max) {
-        alerts.push("การหายใจ");
-      }
-    }
-
-    if (alerts.length > 0) {
-      const alertMessage = `ค่า ${alerts.join(', ')} มีความผิดปกติ`;
-      await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
-    
-      io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
-
-    }
+    await checkAbnormalities(req.body, thresholds, patientForm._id, user);
 
     res.send({ status: "ok", patientForm });
   } catch (error) {
@@ -2657,24 +3246,6 @@ app.post("/addpatientform", async (req, res) => {
     res.status(500).send({ status: "error", message: error.message });
   }
 });
-
-
-app.get("/getpatientform/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const patientForm = await PatientForm.findById(id).exec();
-    if (!patientForm) {
-      return res.status(404).send({ status: "error", message: "Patient form not found" });
-    }
-
-    res.send({ status: "ok", patientForm });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ status: "error", message: error.message });
-  }
-});
-
 
 app.put("/updatepatientform/:id", async (req, res) => {
   const {
@@ -2718,62 +3289,15 @@ app.put("/updatepatientform/:id", async (req, res) => {
       return res.status(404).send({ status: "error", message: "Patient form not found" });
     }
 
+    await Alert.updateMany(
+      { patientFormId: id }, // เงื่อนไขเพื่อค้นหา Alert ที่เกี่ยวข้อง
+      { $set: { viewedBy: [] } } // รีเซ็ตฟิลด์ viewedBy
+    );
+
     const userThreshold = await UserThreshold.findOne({ user });
     const thresholds = userThreshold || threshold;
 
-    let alerts = [];
-
-    const isString = value => typeof value === 'string';
-
-    if (SBP && isString(SBP) && SBP.trim() !== '') {
-      const SBPValue = parseFloat(SBP);
-      if (SBPValue < thresholds.SBP.min || SBPValue > thresholds.SBP.max) {
-        alerts.push("ความดันตัวบน");
-      }
-    }
-
-    if (DBP && isString(DBP) && DBP.trim() !== '') {
-      const DBPValue = parseFloat(DBP);
-      if (DBPValue < thresholds.DBP.min || DBPValue > thresholds.DBP.max) {
-        alerts.push("ความดันตัวล่าง");
-      }
-    }
-
-    if (PulseRate && isString(PulseRate) && PulseRate.trim() !== '') {
-      const PulseRateValue = parseFloat(PulseRate);
-      if (PulseRateValue < thresholds.PulseRate.min || PulseRateValue > thresholds.PulseRate.max) {
-        alerts.push("ชีพจร");
-      }
-    }
-
-    if (Temperature && isString(Temperature) && Temperature.trim() !== '') {
-      const TemperatureValue = parseFloat(Temperature);
-      if (TemperatureValue < thresholds.Temperature.min || TemperatureValue > thresholds.Temperature.max) {
-        alerts.push("อุณหภูมิ");
-      }
-    }
-
-    if (DTX && isString(DTX) && DTX.trim() !== '') {
-      const DTXValue = parseFloat(DTX);
-      if (DTXValue < thresholds.DTX.min || DTXValue > thresholds.DTX.max) {
-        alerts.push("ระดับน้ำตาลในเลือด");
-      }
-    }
-
-    if (Respiration && isString(Respiration) && Respiration.trim() !== '') {
-      const RespirationValue = parseFloat(Respiration);
-      if (RespirationValue < thresholds.Respiration.min || RespirationValue > thresholds.Respiration.max) {
-        alerts.push("การหายใจ");
-      }
-    }
-
-    if (alerts.length > 0) {
-      const alertMessage = `มีการแก้ไขการบันทึก แล้วค่า ${alerts.join(', ')} มีความผิดปกติ`;
-      await Alert.create({ patientFormId: patientForm._id, alertMessage, user });
-      
-      io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
-
-    }
+    await checkAbnormalities(req.body, thresholds, patientForm._id, user, true);
 
     res.send({ status: "ok", patientForm });
   } catch (error) {
@@ -2782,10 +3306,31 @@ app.put("/updatepatientform/:id", async (req, res) => {
   }
 });
 
-app.get("/alerts", async (req, res) => {
+// app.get("/alerts", async (req, res) => {
+//   try {
+//     const alerts = await Alert.find().populate('user', 'name surname').sort({ createdAt: -1 });
+//     res.json({ alerts });
+//   } catch (error) {
+//     console.error("Error fetching alerts:", error);
+//     res.status(500).send({ status: "error", message: error.message });
+//   }
+// });
+app.get("/alerts", async (req, res) => { 
   try {
-    const alerts = await Alert.find().populate('user', 'name surname').sort({ createdAt: -1 });
+    // Modify the query to exclude users with a deletedAt field
+    const alerts = await Alert.find()
+      .populate({
+        path: 'user',
+        select: 'name surname',
+        match: { deletedAt: null } 
+      })
+      .sort({ createdAt: -1 });
+
+    // Filter out alerts with no associated user (i.e., deleted users)
+    // const filteredAlerts = alerts.filter(alert => alert.user !== null);
     res.json({ alerts });
+
+    // res.json({ alerts: filteredAlerts });
   } catch (error) {
     console.error("Error fetching alerts:", error);
     res.status(500).send({ status: "error", message: error.message });
@@ -2891,24 +3436,6 @@ app.get("/getpatientformsone/:id", async (req, res) => {
 
 // จบแอป-------------------------------------------
 
-//กราฟDTX แบบมีเท่าไหร่มาหมด
-// app.get("/getDTXData/:userId", async (req, res) => {
-//   const userId = req.params.userId;
-
-//   try {
-//     const patientForms = await PatientForm.find({ user: userId }).populate('user');
-
-//     const dtxData = patientForms.map(form => ({ 
-//       name: form.user.name, 
-//       DTX: form.DTX
-//     }));
-
-//     res.send({ status: "ok", data: dtxData });
-//   } catch (error) {
-//     console.error("Error fetching DTX data:", error);
-//     res.send({ status: "error" });
-//   }
-// });
 
 //แค่7
 app.get("/getDTXData/:userId/:formId", async (req, res) => {
@@ -2940,32 +3467,6 @@ app.get("/getDTXData/:userId/:formId", async (req, res) => {
     res.send({ status: "error" });
   }
 });
-
-
-
-// app.get("/getDTXData/:userId/:formId", async (req, res) => {
-//   const { userId, formId } = req.params;
-
-//   try {
-//     const patientForms = await PatientForm.find({ user: userId })
-//       .populate('user')
-//       .sort({ createdAt: -1 }); 
-//     const dtxData = [];
-//     for (const form of patientForms) {
-//       dtxData.push({
-//         name: form.user.name,
-//         DTX: form.DTX,
-//         createdAt: form.createdAt
-//       });
-//       if (form._id.toString() === formId) break;
-//     }
-
-//     res.send({ status: "ok", data: dtxData.reverse() });
-//   } catch (error) {
-//     console.error("Error fetching DTX data:", error);
-//     res.send({ status: "error" });
-//   }
-// });
 
 
 app.get("/getPainscoreData/:userId/:formId", async (req, res) => {
@@ -3028,29 +3529,6 @@ app.get("/getTemperatureData/:userId/:formId", async (req, res) => {
     res.send({ status: "error" });
   }
 });
-
-
-// app.get("/getBloodPressureData/:userId", async (req, res) => {
-//   const userId = req.params.userId;
-
-//   try {
-//     const patientForms = await PatientForm.find({ user: userId })
-//       .populate('user')
-//       .sort({ createdAt: -1 }) // เรียงลำดับตาม createdAt จากใหม่สุดไปเก่าสุด
-//       // .limit(7); 
-
-//     const  BloodPressureData = patientForms.map(form => ({ 
-//       name: form.user.name, 
-//       BloodPressure: form.BloodPressure,
-//       createdAt: form.createdAt 
-//     })).reverse(); 
-
-//     res.send({ status: "ok", data: BloodPressureData });
-//   } catch (error) {
-//     console.error("Error fetching  SBP data:", error);
-//     res.send({ status: "error" });
-//   }
-// });
 
 app.get("/getBloodPressureData/:userId/:formId", async (req, res) => {
   const { userId, formId } = req.params;
@@ -3143,23 +3621,6 @@ app.get("/getRespirationData/:userId/:formId", async (req, res) => {
     res.send({ status: "error" });
   }
 });
-//ประเมิน แบบไม่แจ้งเตือน
-// app.post("/addassessment", async (req, res) => {
-//   const { suggestion, detail, status_name, PPS, MPersonnel, PatientForm } = req.body;
-//   try {
-//     await Assessment.create({
-//       suggestion, detail, status_name, PPS, MPersonnel, PatientForm,
-//     });
-//     res.send({ status: "ok" });
-//   } catch (error) {
-//     if (error.code === 11000 && error.keyPattern.PatientForm) {
-//       res.status(400).send({ status: "error", message: "PatientForm already has an assessment." });
-//     } else {
-//       console.error(error);
-//       res.status(500).send({ status: "error", message: "An error occurred while adding assessment." });
-//     }
-//   }
-// });
 
 //แบบไม่มีชื่อผู้ประเมิน
 app.post("/addassessment", async (req, res) => {
@@ -3180,6 +3641,8 @@ app.post("/addassessment", async (req, res) => {
         alertMessage,
         user: patientForm.user._id 
       });
+      io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
+
     }
 
     await Assessment.create({
@@ -3196,6 +3659,133 @@ app.post("/addassessment", async (req, res) => {
     }
   }
 });
+
+// app.put("/updateassessment/:id", async (req, res) => {
+//   const { id } = req.params;
+//   const { suggestion, detail, status_name, PPS, MPersonnel } = req.body;
+
+//   try {
+//     const assessment = await Assessment.findById(id);
+
+//     if (!assessment) {
+//       return res.status(404).send({ status: "error", message: "Assessment not found." });
+//     }
+
+//     // บันทึกการแก้ไขลงใน history
+//     assessment.history.push({
+//       suggestion: assessment.suggestion,
+//       detail: assessment.detail,
+//       status_name: assessment.status_name,
+//       PPS: assessment.PPS,
+//       updatedBy: MPersonnel,
+//     });
+
+//     // อัปเดตข้อมูลใหม่
+//     assessment.suggestion = suggestion;
+//     assessment.detail = detail;
+//     assessment.status_name = status_name;
+//     assessment.PPS = PPS;
+
+//     await assessment.save();
+
+//     res.send({ status: "ok", message: "Assessment updated successfully." });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).send({ status: "error", message: "An error occurred while updating assessment." });
+//   }
+// });
+app.put("/updateassessment/:id", async (req, res) => {
+  const { id } = req.params;
+  const { suggestion, detail, status_name, PPS, MPersonnel } = req.body;
+
+  try {
+    const assessment = await Assessment.findById(id).populate('PatientForm').exec();
+
+    if (!assessment) {
+      return res.status(404).send({ status: "error", message: "Assessment not found." });
+    }
+
+    const previousStatus = assessment.status_name;
+
+    // บันทึกการแก้ไขลงใน history
+    assessment.history.push({
+      suggestion: assessment.suggestion,
+      detail: assessment.detail,
+      status_name: previousStatus,
+      PPS: assessment.PPS,
+      updatedBy: MPersonnel,
+    });
+
+    // อัปเดตข้อมูลใหม่
+    assessment.suggestion = suggestion;
+    assessment.detail = detail;
+    assessment.status_name = status_name;
+    assessment.PPS = PPS;
+
+    // ตรวจสอบว่ามีการเปลี่ยนแปลงสถานะจาก 'เคสฉุกเฉิน'
+    if (previousStatus === 'เคสฉุกเฉิน' && status_name !== 'เคสฉุกเฉิน') {
+      console.log(`Deleting alert for patientFormId: ${assessment.PatientForm._id} with message: 'เป็นเคสฉุกเฉิน'`);
+      
+      // ลบ alert ที่เกี่ยวข้อง
+      const deleteResult = await Alert.deleteOne({
+        patientFormId: assessment.PatientForm._id,
+        alertMessage: 'เป็นเคสฉุกเฉิน'
+      });
+
+      console.log(`Delete result: ${deleteResult}`);
+
+      io.emit('deletedAlert', { patientFormId: assessment.PatientForm._id, alertMessage: 'เป็นเคสฉุกเฉิน' });
+
+    }
+
+    // ถ้าเป็นเคสฉุกเฉินให้สร้าง alert ใหม่
+    if (status_name === 'เคสฉุกเฉิน' && previousStatus !== 'เคสฉุกเฉิน') {
+      const alertMessage = `เป็นเคสฉุกเฉิน`;
+      
+      console.log(`Creating alert for patientFormId: ${assessment.PatientForm._id} with message: 'เป็นเคสฉุกเฉิน'`);
+      
+      await Alert.create({
+        patientFormId: assessment.PatientForm._id,
+        alertMessage,
+        user: assessment.PatientForm.user._id,
+      });
+
+      io.emit('newAlert', { alertMessage, patientFormId: assessment.PatientForm._id });
+
+    }
+
+    await assessment.save();
+
+    res.send({ status: "ok", message: "Assessment updated successfully." });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send({ status: "error", message: "An error occurred while updating assessment." });
+  }
+});
+
+
+app.get("/assessment/:assessmentId", async (req, res) => {
+  const { assessmentId } = req.params; // รับ assessmentId จาก URL
+
+  try {
+    // ค้นหา Assessment โดยใช้ assessmentId
+    const assessment = await Assessment.findById(assessmentId)
+      .populate("history.updatedBy", "name surname") // ดึงข้อมูลชื่อของผู้ที่อัพเดตจาก MPersonnel
+      .exec();
+
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    // ส่งข้อมูลของ Assessment รวมถึง history
+    res.json({ data: assessment });
+  } catch (error) {
+    console.error("Error fetching assessment:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
 // แบบมีชื่อผู้ประเมิน
 // app.post("/addassessment", async (req, res) => {
 //   const { suggestion, detail, status_name, PPS, MPersonnel: mPersonnelId, PatientForm: patientFormId } = req.body;
@@ -3400,12 +3990,17 @@ app.get("/searchuser", async (req, res) => {
 
 
 //ลบผู้ป่วย
+
+//verไม่มีใส่รหัสผ่านแอดมิน
 // app.delete("/deleteUser/:id", async (req, res) => {
 //   const UserId = req.params.id;
 //   try {
-//     const result = await User.deleteOne({ _id: UserId });
+//     const result = await User.findOneAndUpdate(
+//       { _id: UserId },
+//       { $set: { deletedAt: new Date() } }
+//     );
 
-//     if (result.deletedCount === 1) {
+//     if (result) {
 //       res.json({ status: "OK", data: "ลบข้อมูลผู้ป่วยสำเร็จ" });
 //     } else {
 //       res.json({
@@ -3418,18 +4013,47 @@ app.get("/searchuser", async (req, res) => {
 //     res.status(500).json({ status: "Error", data: "Internal Server Error" });
 //   }
 // });
+
 app.delete("/deleteUser/:id", async (req, res) => {
   const UserId = req.params.id;
+  const { adminPassword, adminId } = req.body; // adminId ต้องถูกส่งมาจากฝั่ง frontend
   try {
-    const result = await User.findOneAndUpdate(
-      { _id: UserId },
-      { $set: { deletedAt: new Date() } }
+    // ตรวจสอบว่ามี Admin ที่ส่งคำขอหรือไม่
+    const admin = await Admins.findById(adminId);
+
+    if (!admin) {
+      return res.status(401).json({
+        status: "Unauthorized",
+        data: "ไม่พบข้อมูลผู้ดูแลระบบหรือไม่ได้เข้าสู่ระบบ",
+      });
+    }
+
+    // ตรวจสอบรหัสผ่าน Admin
+    const isPasswordCorrect = await bcrypt.compare(adminPassword, admin.password); // Assuming passwords are hashed
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        status: "Unauthorized",
+        data: "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง",
+      });
+    }
+
+    // Mark user as deleted
+    const result = await User.findByIdAndUpdate(
+      UserId,
+      {
+        $set: {
+          deletedAt: new Date(),
+          deleteExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 วัน
+        },
+      },
+      { new: true }
     );
+
 
     if (result) {
       res.json({ status: "OK", data: "ลบข้อมูลผู้ป่วยสำเร็จ" });
     } else {
-      res.json({
+      res.status(404).json({
         status: "Not Found",
         data: "ไม่พบข้อมูลผู้ป่วยนี้หรือข้อมูลถูกลบไปแล้ว",
       });
@@ -3440,6 +4064,24 @@ app.delete("/deleteUser/:id", async (req, res) => {
   }
 });
 
+//กู้คืน
+app.post("/recoveruser/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { deletedAt: null },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: "ไม่พบผู้ใช้" });
+    }
+    res.json({ success: true, message: "กู้คืนข้อมูลสำเร็จ", data: user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาด" });
+  }
+});
 
 //ดึงคู่ข้อมูลผู้ป่วย
 app.get("/getuser/:id", async (req, res) => {
@@ -3541,63 +4183,7 @@ app.post("/updatenameadmin/:id", async (req, res) => {
   }
 });
 
-//เปลี่ยนอีเมล ส่ง otp ยังไม่มีตัวเก็บ otp เพื่อเช็คว่าตรงกับที่ส่งไหม
 
-// app.post("/sendotp", async (req, res) => {
-//   const { email } = req.body;
-//   const otp = randomstring.generate(6); // สร้างรหัส OTP แบบสุ่ม
-
-//   try {
-//     // ส่งอีเมล OTP ไปยังอีเมลของผู้ใช้
-//     let transporter = nodemailer.createTransport({
-//       service: 'gmail',
-//       auth: {
-//         user: 'oysasitorn@gmail.com', // อีเมลของคุณ
-//         pass: 'avyn xfwl pqio hmtr' // รหัสผ่านของคุณ
-//       }
-//     });
-
-//     let mailOptions = {
-//       from: 'oysasitorn@gmail.com', // อีเมลของคุณ
-//       to: email,
-//       subject: 'รหัส OTP สำหรับยืนยันการเปลี่ยนอีเมล',
-//       text: `รหัส OTP ของคุณคือ: ${otp}`
-//     };
-
-//     transporter.sendMail(mailOptions, (error, info) => {
-//       if (error) {
-//         console.log(error);
-//         res.json({ error: "เกิดข้อผิดพลาดในการส่งอีเมล OTP" });
-//       } else {
-//         console.log('Email sent: ' + info.response);
-//         res.json({ success: true, otp });
-//       }
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ error: "เกิดข้อผิดพลาด" });
-//   }
-// });
-
-// app.post("/updateemail", async (req, res) => {
-//   const { email, otp } = req.body;
-//   if (!email || !otp) {
-//     return res.json({ error: "กรุณากรอกอีเมลและรหัส OTP" });
-//   }
-
-//   // ตรวจสอบว่า OTP ถูกต้องหรือไม่ (ให้ส่ง OTP ไปยังอีเมลของผู้ใช้แล้วตรวจสอบ)
-//   if (otp !== correctOTP) { // สมมติว่า correctOTP เป็นตัวแปรที่เก็บรหัส OTP ที่ถูกส่งไปยังอีเมลของผู้ใช้
-//     return res.json({ error: "รหัส OTP ไม่ถูกต้อง" });
-//   }
-
-//   try {
-//     // อัปเดตอีเมลใหม่ในฐานข้อมูลของผู้ใช้
-//     await Admins.updateOne({ email: req.user.email }, { $set: { email } });
-//     res.send({ status: "ok" });
-//   } catch (error) {
-//     res.send({ status: "error" });
-//   }
-// });
 //----------------------------------------------
 
 app.post("/updatemedicalinformation/:id", upload1, async (req, res) => {
@@ -3968,54 +4554,7 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 
 // ------------------------------------------------
-//แชทส่งรูปไม่ได้
-// app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
-//   try {
-//     const { message, recipientId, senderId, recipientModel, senderModel } = req.body;
 
-//     // Validate required fields
-//     if (!message || !recipientId || !senderId || !recipientModel || !senderModel) {
-//       return res.status(400).json({ success: false, message: 'Missing required fields' });
-//     }
-
-//     let recipient, sender;
-
-//     // Find recipient
-//     recipient = recipientModel === 'User' 
-//       ? await User.findById(recipientId) 
-//       : await MPersonnel.findById(recipientId);
-      
-//     // Find sender
-//     sender = senderModel === 'User' 
-//       ? await User.findById(senderId) 
-//       : await MPersonnel.findById(senderId);
-
-//     if (!recipient || !sender) {
-//       return res.status(404).json({ success: false, message: 'Sender or recipient not found' });
-//     }
-
-//     let imageUrl;
-
-//     if (req.file) {
-//       imageUrl = await uploadImage(req.file);
-//     }
-
-//     const newChat = new Chat({
-//       message,
-//       image: imageUrl || undefined,
-//       recipient: recipient._id,
-//       sender: sender._id,
-//       recipientModel,
-//       senderModel
-//     });
-
-//     await newChat.save();
-//     res.json({ success: true, message: 'Chat message saved', imageUrl });
-//   } catch (error) {
-//     console.error('Error saving chat message:', error);
-//     res.status(500).json({ success: false, message: 'Error saving chat message' });
-//   }
-// });
 
 // แชทฝั่งหมอ
 
@@ -4049,125 +4588,756 @@ app.get("/searchuserchat", async (req, res) => {
   }
 });
 
-app.post('/sendchat', uploadimg.single('image'), async (req, res) => {
+
+//เริ่มต้นแก้ใหม่ 191267
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // เข้าห้องแชท
+  socket.on('joinRoom', (roomId) => {
+    socket.join(roomId);
+    console.log(`User joined room: ${roomId}`);
+  });
+
+   
+    // อัปเดตข้อความเมื่อมีการอ่านข้อความ
+    socket.on("markAsRead", async ({ roomId, messageId, userId }) => {
+      try {
+        // ตรวจสอบ userId ว่าเป็น ObjectId ที่ถูกต้อง
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+          console.error(`Invalid userId: ${userId}`);
+          return;
+        }
+        const chatMessage = await Chat.findById(messageId);
+        if (chatMessage) {
+          const isAlreadyRead = chatMessage.readBy.some(
+            (readerId) => readerId.toString() === userId
+          );
+          if (!isAlreadyRead && chatMessage.sender.toString() !== userId) {
+            await Chat.findByIdAndUpdate(
+              messageId,
+              { $addToSet: { readBy: userId } }, // ป้องกันค่าซ้ำใน readBy
+              { new: true } // คืนค่าที่อัปเดตกลับมา
+            );
+         const chats = await Chat.find({
+          roomId,
+          sender: { $ne: userId },
+          readBy: { $nin: [userId] },
+        });
+            // ส่งข้อมูลอัปเดตให้ทุกคนในห้อง
+            io.to(roomId).emit("readByUpdated", {
+              messageId,
+              readBy: [...chatMessage.readBy, userId], // รวม userId ใหม่
+              unreadCount: chats.length,
+            });
+            console.log(`Message ${messageId} marked as read by ${userId}`);
+
+            const updatedUsers = await User.find(
+              { deletedAt: null },
+              "name surname username"
+            ).lean();
+    
+            const updatedMPersonnel = await MPersonnel.find(
+              { deletedAt: null },
+              "name surname username"
+            ).lean();
+        
+            // รวม User และ MPersonnel
+            const allParticipants = [...updatedUsers, ...updatedMPersonnel];
+        
+            // ดึงข้อมูลห้องทั้งหมดที่ผู้ใช้และ MPersonnel เป็นสมาชิก
+            const totalrooms = await Room.find({
+              "participants.id": { $in: allParticipants.map((participant) => participant._id) },
+            }).lean();
+        
+            // คำนวณ unread count สำหรับแต่ละผู้ใช้ในห้องนี้
+            const usersWithUnreadCounts = await Promise.all(
+              allParticipants.map(async (participant) => {
+                // หาห้องที่ผู้ใช้อยู่
+                const userRooms = totalrooms.filter((room) =>
+                  room.participants.some((p) => String(p.id) === String(participant._id))
+                );
+        
+                if (userRooms.length === 0) {
+                  return null;  // ถ้าผู้ใช้ไม่ได้อยู่ในห้องใดๆ ให้ข้ามไป
+                }
+        
+                let unreadCount = {};
+        
+                // คำนวณ unread count สำหรับแต่ละห้องที่ผู้ใช้เป็นสมาชิก
+                for (const room of userRooms) {
+                  const excludedUsers = await User.find({ deletedAt: { $ne: null } }).lean();
+                  const excludedUserIds = excludedUsers.map((user) => String(user._id));
+            
+                  // ถ้าห้องมี roomId ที่ตรงกับ excludedUserIds ให้ข้ามห้องนี้
+                  if (excludedUserIds.includes(String(room.roomId))) {
+                    continue;
+                  }
+
+                  const roomUnreadCount = await Chat.countDocuments({
+                    roomId: room.roomId,
+                    readBy: { $ne: participant._id }, // ตรวจสอบว่าแชทที่ยังไม่ได้อ่าน
+                  });
+        
+                  unreadCount[room.roomId] = roomUnreadCount;
+                }
+        
+                // คำนวณ total unread count สำหรับผู้ใช้
+                const totalUnreadCount = Object.values(unreadCount).reduce(
+                  (acc, count) => acc + count,
+                  0
+                );
+        
+                console.log(`📦 Total Unread Count for ${participant._id}:`, totalUnreadCount);
+        
+                return {
+                  userId: participant._id,
+                  unreadCount,
+                  totalUnreadCount,
+                };
+              })
+            );
+        
+            // กรองเฉพาะผู้ใช้ที่มีข้อมูล (ไม่เป็น null)
+            const totalfilteredUsers = usersWithUnreadCounts.filter((user) => user !== null);
+            console.log('รวม:', totalfilteredUsers);
+            io.emit("TotalUnreadCounts", totalfilteredUsers);
+          }
+        }
+       
+      } catch (error) {
+        console.error("Error updating readBy:", error);
+      }
+    });
+  
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+  });
+});
+
+
+app.post("/sendchat", uploadimg.single("image"), async (req, res) => {
   try {
-    const { message, recipientId, senderId, recipientModel, senderModel } = req.body;
-
-    let recipient, sender;
-
-    if (recipientModel === 'User') {
-      recipient = await User.findById(recipientId);
-    } else if (recipientModel === 'MPersonnel') {
-      recipient = await MPersonnel.findById(recipientId);
+    const { message, roomId, senderId, senderModel } = req.body;
+    let sender;
+    if (message.length > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: "Message exceeds the maximum length of 1000 characters.",
+      });
     }
 
-    if (senderModel === 'User') {
+    if (senderModel === "User") {
       sender = await User.findById(senderId);
-    } else if (senderModel === 'MPersonnel') {
+    } else if (senderModel === "MPersonnel") {
       sender = await MPersonnel.findById(senderId);
     }
 
-    if (!recipient) {
-      return res.status(404).json({ success: false, message: 'Recipient not found' });
-    }
-
     if (!sender) {
-      return res.status(404).json({ success: false, message: 'Sender not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     let newChat;
 
+    // ตรวจสอบว่ามีการอัปโหลดไฟล์มาหรือไม่
     if (req.file) {
       const bucket = admin.storage().bucket();
       const fileName = req.file.originalname;
       const file = bucket.file(fileName);
-      const originalFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+      const originalFileName = Buffer.from(
+        req.file.originalname,
+        "latin1"
+      ).toString("utf8");
 
       const fileStream = file.createWriteStream({
         metadata: {
-          contentType: req.file.mimetype
-        }
+          contentType: req.file.mimetype,
+        },
       });
 
-      fileStream.on('error', (err) => {
-        console.error('Error uploading image:', err);
-        res.status(500).json({ success: false, message: 'Error uploading image' });
+      fileStream.on("error", (err) => {
+        console.error("Error uploading image:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Error uploading image" });
       });
 
-      fileStream.on('finish', async () => {
+      fileStream.on("finish", async () => {
         const [metadata] = await file.getMetadata();
         const fileSize = metadata.size;
 
-        const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${fileName}?alt=media`;
+        const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${
+          bucket.name
+        }/o/${encodeURIComponent(fileName)}?alt=media`;
 
         newChat = new Chat({
           message,
           image: imageUrl,
-          imageName: originalFileName, 
-          recipient: recipient._id,
+          imageName: originalFileName,
           sender: sender._id,
-          recipientModel,
           senderModel,
-          fileSize
+          roomId,
+          fileSize,
+          readBy: [senderId],
         });
 
         await newChat.save();
+        await newChat.populate("sender", "name surname");
 
-        // ส่งข้อความใหม่ให้ผู้ใช้ทุกนที่เชื่อมต่อ
+        // กระจายข้อความแบบเรียลไทม์
+        io.to(roomId).emit("receiveMessage", newChat);
 
-        res.json({ success: true, message: 'Chat message with image saved', imageUrl,imageName: originalFileName, fileSize });
+        const updatedUsers = await User.find(
+          { deletedAt: null },
+          "name surname username"
+        ).lean();
+
+        const updatedMPersonnel = await MPersonnel.find(
+          { deletedAt: null },
+          "name surname username"
+        ).lean();
+
+        const rooms = await Room.find({
+          "participants.id": { $in: updatedUsers.map((user) => user._id) },
+        }).lean();
+
+        const usersWithChats = await Promise.all(
+          updatedUsers.map(async (user) => {
+            const userRooms = rooms.filter((room) =>
+              room.participants.some((p) => String(p.id) === String(user._id))
+            );
+
+            if (userRooms.length === 0) {
+              return null;
+            }
+
+            let latestChat = null;
+            let unreadCount = {};
+
+            for (const room of userRooms) {
+              // ดึงแชทล่าสุดในห้อง
+              const roomLatestChat = await Chat.findOne({ roomId: room.roomId })
+                .sort({ createdAt: -1 })
+                .populate("sender", "name surname")
+                .lean();
+
+              if (roomLatestChat) {
+                if (
+                  !latestChat ||
+                  new Date(roomLatestChat.createdAt) >
+                    new Date(latestChat.createdAt)
+                ) {
+                  latestChat = {
+                    message: roomLatestChat.message,
+                    file: roomLatestChat.image,
+                    senderId: roomLatestChat.sender._id,
+                    senderName: `${roomLatestChat.sender.name} ${roomLatestChat.sender.surname}`,
+                    createdAt: roomLatestChat.createdAt,
+                  };
+                }
+              }
+
+              // ดึงจำนวนข้อความที่ยังไม่ได้อ่านสำหรับทุก participants ในห้องนี้
+              for (const participant of room.participants) {
+                const unreadCounts = await Chat.countDocuments({
+                  roomId: room.roomId,
+                  readBy: { $ne: participant.id }, // ตรวจสอบว่าใครยังไม่ได้อ่าน
+                });
+
+                unreadCount[participant.id] = unreadCounts;
+              }
+            }
+
+            return {
+              _id: user._id,
+              name: user.name,
+              surname: user.surname,
+              username: user.username,
+              latestChat,
+              unreadCount,
+            };
+          })
+        );
+        const filteredUsers = usersWithChats.filter((user) => user !== null);
+
+        io.emit("usersUpdated", filteredUsers);
+
+        const allParticipants = [...updatedUsers, ...updatedMPersonnel];
+
+        const totalrooms = await Room.find({
+          "participants.id": {
+            $in: allParticipants.map((participant) => participant._id),
+          },
+        }).lean();
+
+        const usersWithUnreadCounts = await Promise.all(
+          allParticipants.map(async (participant) => {
+            const userRooms = totalrooms.filter((room) =>
+              room.participants.some(
+                (p) => String(p.id) === String(participant._id)
+              )
+            );
+
+            if (userRooms.length === 0) {
+              return null; 
+            }
+
+            let unreadCount = {};
+
+            for (const room of userRooms) {
+              const excludedUsers = await User.find({
+                deletedAt: { $ne: null },
+              }).lean();
+              const excludedUserIds = excludedUsers.map((user) =>
+                String(user._id)
+              );
+
+              // ถ้าห้องมี roomId ที่ตรงกับ excludedUserIds ให้ข้ามห้องนี้
+              if (excludedUserIds.includes(String(room.roomId))) {
+                continue;
+              }
+              const roomUnreadCount = await Chat.countDocuments({
+                roomId: room.roomId,
+                readBy: { $ne: participant._id },
+              });
+
+              unreadCount[room.roomId] = roomUnreadCount;
+            }
+
+            const totalUnreadCount = Object.values(unreadCount).reduce(
+              (acc, count) => acc + count,
+              0
+            );
+
+           console.log(
+              `Total Unread Count for ${participant._id}:`,
+              totalUnreadCount
+            );
+
+            return {
+              userId: participant._id,
+              unreadCount,
+              totalUnreadCount,
+            };
+          })
+        );
+
+        // กรองเฉพาะผู้ใช้ที่มีข้อมูล (ไม่เป็น null)
+        const totalfilteredUsers = usersWithUnreadCounts.filter(
+          (user) => user !== null
+        );
+        console.log("รวม:", totalfilteredUsers);
+        io.emit("TotalUnreadCounts", totalfilteredUsers);
+
+        res.json({
+          success: true,
+          message: "Chat message with image saved",
+          newChat,
+          imageUrl,
+          imageName: originalFileName,
+          fileSize,
+          roomId,
+          readBy: [senderId],
+        });
       });
 
       fileStream.end(req.file.buffer);
     } else {
+      // กรณีไม่มีไฟล์
       newChat = new Chat({
         message,
-        recipient: recipient._id,
         sender: sender._id,
-        recipientModel,
-        senderModel
+        senderModel,
+        roomId,
+        readBy: [senderId],
       });
 
       await newChat.save();
-    
+      await newChat.populate("sender", "name surname");
 
-      res.json({ success: true, message: 'Chat message without image saved' });
+      io.to(roomId).emit("receiveMessage", newChat);
+
+      const updatedUsers = await User.find(
+        { deletedAt: null },
+        "name surname username"
+      ).lean();
+
+      const updatedMPersonnel = await MPersonnel.find(
+        { deletedAt: null },
+        "name surname username"
+      ).lean();
+
+      const rooms = await Room.find({
+        "participants.id": { $in: updatedUsers.map((user) => user._id) },
+      }).lean();
+
+      const usersWithChats = await Promise.all(
+        updatedUsers.map(async (user) => {
+          const userRooms = rooms.filter((room) =>
+            room.participants.some((p) => String(p.id) === String(user._id))
+          );
+
+          if (userRooms.length === 0) {
+            return null;
+          }
+
+          let latestChat = null;
+          let unreadCount = {};
+
+          for (const room of userRooms) {
+            // ดึงแชทล่าสุดในห้อง
+            const roomLatestChat = await Chat.findOne({ roomId: room.roomId })
+              .sort({ createdAt: -1 })
+              .populate("sender", "name surname")
+              .lean();
+
+            if (roomLatestChat) {
+              if (
+                !latestChat ||
+                new Date(roomLatestChat.createdAt) >
+                  new Date(latestChat.createdAt)
+              ) {
+                latestChat = {
+                  message: roomLatestChat.message,
+                  file: roomLatestChat.image,
+                  senderId: roomLatestChat.sender._id,
+                  senderName: `${roomLatestChat.sender.name} ${roomLatestChat.sender.surname}`,
+                  createdAt: roomLatestChat.createdAt,
+                };
+              }
+            }
+
+            // ดึงจำนวนข้อความที่ยังไม่ได้อ่านสำหรับทุก participants ในห้องนี้
+            for (const participant of room.participants) {
+              const unreadCounts = await Chat.countDocuments({
+                roomId: room.roomId,
+                readBy: { $ne: participant.id }, // ตรวจสอบว่าใครยังไม่ได้อ่าน
+              });
+
+              unreadCount[participant.id] = unreadCounts;
+            }
+          }
+
+          return {
+            _id: user._id,
+            name: user.name,
+            surname: user.surname,
+            username: user.username,
+            latestChat,
+            unreadCount,
+          };
+        })
+      );
+      const filteredUsers = usersWithChats.filter((user) => user !== null);
+
+      io.emit("usersUpdated", filteredUsers);
+
+      // รวม User และ MPersonnel
+      const allParticipants = [...updatedUsers, ...updatedMPersonnel];
+
+      // ดึงข้อมูลห้องทั้งหมดที่ผู้ใช้และ MPersonnel เป็นสมาชิก
+      const totalrooms = await Room.find({
+        "participants.id": {
+          $in: allParticipants.map((participant) => participant._id),
+        },
+      }).lean();
+
+      // คำนวณ unread count สำหรับแต่ละผู้ใช้ในห้องนี้
+      const usersWithUnreadCounts = await Promise.all(
+        allParticipants.map(async (participant) => {
+          // หาห้องที่ผู้ใช้อยู่
+          const userRooms = totalrooms.filter((room) =>
+            room.participants.some(
+              (p) => String(p.id) === String(participant._id)
+            )
+          );
+
+          if (userRooms.length === 0) {
+            return null; // ถ้าผู้ใช้ไม่ได้อยู่ในห้องใดๆ ให้ข้ามไป
+          }
+
+          let unreadCount = {};
+
+          // คำนวณ unread count สำหรับแต่ละห้องที่ผู้ใช้เป็นสมาชิก
+          for (const room of userRooms) {
+            const excludedUsers = await User.find({
+              deletedAt: { $ne: null },
+            }).lean();
+            const excludedUserIds = excludedUsers.map((user) =>
+              String(user._id)
+            );
+
+            // ถ้าห้องมี roomId ที่ตรงกับ excludedUserIds ให้ข้ามห้องนี้
+            if (excludedUserIds.includes(String(room.roomId))) {
+              continue;
+            }
+
+            const roomUnreadCount = await Chat.countDocuments({
+              roomId: room.roomId,
+              readBy: { $ne: participant._id }, // ตรวจสอบว่าแชทที่ยังไม่ได้อ่าน
+            });
+
+            unreadCount[room.roomId] = roomUnreadCount;
+          }
+
+          // คำนวณ total unread count สำหรับผู้ใช้
+          const totalUnreadCount = Object.values(unreadCount).reduce(
+            (acc, count) => acc + count,
+            0
+          );
+
+          console.log(
+            `📦 Total Unread Count for ${participant._id}:`,
+            totalUnreadCount
+          );
+
+          return {
+            userId: participant._id,
+            unreadCount,
+            totalUnreadCount,
+          };
+        })
+      );
+
+      // กรองเฉพาะผู้ใช้ที่มีข้อมูล (ไม่เป็น null)
+      const totalfilteredUsers = usersWithUnreadCounts.filter(
+        (user) => user !== null
+      );
+      console.log("รวม:", totalfilteredUsers);
+      io.emit("TotalUnreadCounts", totalfilteredUsers);
+
+      res.json({ success: true, message: "Chat message saved", newChat });
     }
   } catch (error) {
-    console.error('Error saving chat message:', error);
-    res.status(500).json({ success: false, message: 'Error saving chat message' });
+    console.error("Error saving chat message:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Error saving chat message" });
   }
 });
 
 
 
-
-app.get('/chat/:recipientId/:recipientModel/:senderId/:senderModel', async (req, res) => {
+app.get("/getChatHistory/:roomId", async (req, res) => {
   try {
-    const { recipientId, recipientModel, senderId, senderModel } = req.params;
+    const { roomId } = req.params;
 
-    const recipientChats = await Chat.find({
-      $or: [
-        { recipient: recipientId, recipientModel, sender: senderId, senderModel },
-        { recipient: senderId, recipientModel: senderModel, sender: recipientId, senderModel: recipientModel }
-      ]
-    })
-      .populate('recipient')
-      .populate('sender');
+    const chatHistory = await Chat.find({ roomId: roomId }) 
+      .populate("sender", "name username surname") 
+      .sort({ createdAt: 1 }); 
+    if (!chatHistory || chatHistory.length === 0) {
+      return res.json({
+        success: true,
+        message: "No chat history found for this roomId",
+        chatHistory: [],
+      });
+    }
 
-    res.json({ success: true, chats: recipientChats });
+    res.json({ success: true, chatHistory });
+  } catch (error) {
+    console.error("Error fetching chat history:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching chat history" });
+  }
+});
 
-    await Chat.updateMany(
-      { recipient: senderId, sender: recipientId, recipientModel: senderModel, senderModel: recipientModel, isRead: false },
-      { $set: { isRead: true, readAt: new Date() } }
+app.get("/users", async (req, res) => {
+  try {
+    const userId = req.query.senderId;
+    const updatedUsers = await User.find(
+      { deletedAt: null },
+      "name surname username"
+    ).lean();
+
+    const rooms = await Room.find({
+      "participants.id": { $in: updatedUsers.map((user) => user._id) },
+    }).lean();
+
+    const usersWithChats = await Promise.all(
+      updatedUsers.map(async (user) => {
+        const userRooms = rooms.filter((room) =>
+          room.participants.some((p) => String(p.id) === String(user._id))
+        );
+
+        if (userRooms.length === 0) {
+          return null;
+        }
+
+        let latestChat = null;
+        let unreadCount = {};
+
+        for (const room of userRooms) {
+          // ดึงแชทล่าสุดในห้อง
+          const roomLatestChat = await Chat.findOne({ roomId: room.roomId })
+            .sort({ createdAt: -1 })
+            .populate("sender", "name surname")
+            .lean();
+
+          if (roomLatestChat) {
+            if (
+              !latestChat ||
+              new Date(roomLatestChat.createdAt) >
+                new Date(latestChat.createdAt)
+            ) {
+              latestChat = {
+                message: roomLatestChat.message,
+                file: roomLatestChat.image,
+                senderId: roomLatestChat.sender._id,
+                senderName: `${roomLatestChat.sender.name} ${roomLatestChat.sender.surname}`,
+                createdAt: roomLatestChat.createdAt,
+              };
+            }
+          }
+
+          // ดึงจำนวนข้อความที่ยังไม่ได้อ่านสำหรับทุก participants ในห้องนี้
+          for (const participant of room.participants) {
+            const unreadCounts = await Chat.countDocuments({
+              roomId: room.roomId,
+              readBy: { $ne: participant.id }, // ตรวจสอบว่าใครยังไม่ได้อ่าน
+            });
+
+            unreadCount[participant.id] = unreadCounts;
+          }
+        }
+
+        return {
+          _id: user._id,
+          name: user.name,
+          surname: user.surname,
+          username: user.username,
+          latestChat,
+          unreadCount,
+        };
+      })
+    );
+    const filteredUsers = usersWithChats.filter((user) => user !== null);
+    console.log("📦 Filtered Users with Chats777:", filteredUsers);
+    res.json({ success: true, users: filteredUsers });
+  } catch (error) {
+    console.error("Error fetching users with chats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching users with chats",
+    });
+  }
+});
+
+
+app.get("/update-unread-count", async (req, res) => {
+  try {
+
+    // ดึงข้อมูลผู้ใช้ที่ไม่ถูกลบ
+    const updatedUsers = await User.find(
+      { deletedAt: null },
+      "name surname username"
+    ).lean();
+
+    // ดึงข้อมูล MPersonnel
+    const updatedMPersonnel = await MPersonnel.find(
+      { deletedAt: null },
+      "name surname username"
+    ).lean();
+
+    // รวม User และ MPersonnel
+    const allParticipants = [...updatedUsers, ...updatedMPersonnel];
+
+    // ดึงข้อมูลห้องทั้งหมดที่ผู้ใช้และ MPersonnel เป็นสมาชิก
+    const rooms = await Room.find({
+      "participants.id": { $in: allParticipants.map((participant) => participant._id) },
+    }).lean();
+
+    // คำนวณ unread count สำหรับแต่ละผู้ใช้ในห้องนี้
+    const usersWithUnreadCounts = await Promise.all(
+      allParticipants.map(async (participant) => {
+        // หาห้องที่ผู้ใช้อยู่
+        const userRooms = rooms.filter((room) =>
+          room.participants.some((p) => String(p.id) === String(participant._id))
+        );
+
+        if (userRooms.length === 0) {
+          return null;  // ถ้าผู้ใช้ไม่ได้อยู่ในห้องใดๆ ให้ข้ามไป
+        }
+
+        let unreadCount = {};
+
+        // คำนวณ unread count สำหรับแต่ละห้องที่ผู้ใช้เป็นสมาชิก
+        for (const room of userRooms) {
+
+          const excludedUsers = await User.find({ deletedAt: { $ne: null } }).lean();
+          const excludedUserIds = excludedUsers.map((user) => String(user._id));
+    
+          // ถ้าห้องมี roomId ที่ตรงกับ excludedUserIds ให้ข้ามห้องนี้
+          if (excludedUserIds.includes(String(room.roomId))) {
+            continue;
+          }
+
+          const roomUnreadCount = await Chat.countDocuments({
+            roomId: room.roomId,
+            readBy: { $ne: participant._id }, // ตรวจสอบว่าแชทที่ยังไม่ได้อ่าน
+          });
+
+          unreadCount[room.roomId] = roomUnreadCount;
+        }
+
+        // คำนวณ total unread count สำหรับผู้ใช้
+        const totalUnreadCount = Object.values(unreadCount).reduce(
+          (acc, count) => acc + count,
+          0
+        );
+
+        console.log(`📦 Total Unread Count for ${participant._id}:`, totalUnreadCount);
+
+        return {
+          userId: participant._id,
+          unreadCount,
+          totalUnreadCount,
+        };
+      })
     );
 
+    // กรองเฉพาะผู้ใช้ที่มีข้อมูล (ไม่เป็น null)
+    const filteredUsers = usersWithUnreadCounts.filter((user) => user !== null);
+    console.log('📦 Users with Unread Counts:', filteredUsers);
+    io.emit('updateUnreadCounts', filteredUsers);
+    res.status(200).send({ success: true, users: filteredUsers });
+
   } catch (error) {
-    console.error('Error retrieving recipient chats:', error);
-    res.status(500).json({ success: false, message: 'Error retrieving recipient chats' });
+    console.error("Error updating unread count:", error);
+    res.status(500).json({ success: false, message: "Error updating unread count" });
   }
 });
 
+
+app.get('/getUserById/:id', async (req, res) => {
+  const { id } = req.params; // ดึง ID จาก URL
+
+  try {
+    const user = await User.findById(id); // ค้นหาผู้ใช้จาก ID
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ user }); // ส่งข้อมูลของผู้ใช้กลับไป
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// API สำหรับดึงข้อมูล MPersonnel ทั้งหมด
+app.get('/getMPersonnelList', async (req, res) => {
+  try {
+    const personnelList = await MPersonnel.find({ deletedAt: null }); // สามารถเพิ่มเงื่อนไขที่ต้องการ
+    res.json(personnelList);
+  } catch (error) {
+    console.error('Error fetching MPersonnel list:', error);
+    res.status(500).json({ success: false, message: 'Error fetching MPersonnel list' });
+  }
+});
+
+// ----------------
 
 app.get('/alluserchat', async (req, res) => {
   try {
