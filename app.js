@@ -4788,3 +4788,18 @@ app.get('/getcaregivesotherpeople/:userId', async (req, res) => {
   }
 });
 
+
+//home
+
+app.get("/immobility/group3", async (req, res) => {
+  try {
+    const data = await Assessinhomesss.find({
+      "Immobility.totalScore": { $gte: 36, $lte: 48 }, // เงื่อนไขสำหรับกลุ่มที่ 3
+    }).populate("user"); // ดึงข้อมูล user เพิ่มเติม (ถ้าต้องการ)
+
+    res.status(200).json({ data });
+  } catch (error) {
+    console.error("Error fetching group 3 data:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
