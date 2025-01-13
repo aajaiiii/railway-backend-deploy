@@ -97,6 +97,8 @@ const ReadinessForm = mongoose.model("ReadinessForm")
 const ReadinessAssessment = mongoose.model("ReadinessAssessment")
 const OTPModel = mongoose.model("OTPModel")
 const OTPModelUser = mongoose.model("OTPModelUser")
+const Assessinhomesss = mongoose.model("Assessinhomesss")
+const Agenda = mongoose.model("Agenda")
 const DefaultThreshold = mongoose.model("DefaultThreshold")
 const Room = mongoose.model("Room");
 
@@ -150,11 +152,11 @@ app.post('/send-otp1', async (req, res) => {
       return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
     }
 
-   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
-   const existingUser = await mongoose.model('Admin').findOne({ email });
-   if (existingUser && existingUser.isEmailVerified) {
-     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
-   }
+    // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+    const existingUser = await mongoose.model('Admin').findOne({ email });
+    if (existingUser && existingUser.isEmailVerified) {
+      return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+    }
 
     // สร้าง OTP
     const otp = crypto.randomInt(100000, 999999).toString();
@@ -231,11 +233,11 @@ app.post('/send-otp2', async (req, res) => {
       return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
     }
 
-   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
-   const existingUser = await mongoose.model('MPersonnel').findOne({ email });
-   if (existingUser && existingUser.isEmailVerified) {
-     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
-   }
+    // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+    const existingUser = await mongoose.model('MPersonnel').findOne({ email });
+    if (existingUser && existingUser.isEmailVerified) {
+      return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+    }
 
     // สร้าง OTP
     const otp = crypto.randomInt(100000, 999999).toString();
@@ -312,11 +314,11 @@ app.post('/send-otp3', async (req, res) => {
       return res.status(400).json({ error: 'กรุณากรอก username และอีเมล' });
     }
 
-   // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
-   const existingUser = await mongoose.model('User').findOne({ email });
-   if (existingUser && existingUser.isEmailVerified) {
-     return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
-   }
+    // ตรวจสอบว่าอีเมลที่ส่งมามีการยืนยันแล้วหรือไม่
+    const existingUser = await mongoose.model('User').findOne({ email });
+    if (existingUser && existingUser.isEmailVerified) {
+      return res.status(400).json({ error: 'อีเมลนี้ได้รับการยืนยันแล้ว' });
+    }
 
     // สร้าง OTP
     const otp = crypto.randomInt(100000, 999999).toString();
@@ -430,7 +432,7 @@ app.post("/login", async (req, res) => {
   }
   if (await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: '30d',
+      expiresIn: '7d',
     });
 
     if (res.status(201)) {
@@ -793,10 +795,10 @@ app.get("/alladmin", async (req, res) => {
 //เพิ่มข้อมูลแพทย์
 app.post("/addmpersonnel", async (req, res) => {
   const { username, email, tel, nametitle, name, surname } = req.body;
-  
+
   // ใช้เบอร์โทรเป็นรหัสผ่าน
-  const encryptedPassword = await bcrypt.hash(tel, 10); 
-  
+  const encryptedPassword = await bcrypt.hash(tel, 10);
+
   if (!username || !email || !tel || !name || !surname || !nametitle) {
     return res.json({
       error:
@@ -806,7 +808,7 @@ app.post("/addmpersonnel", async (req, res) => {
 
   try {
     const oldUser = await MPersonnel.findOne({ username });
-    
+
     // ตรวจสอบว่าชื่อผู้ใช้นี้มีอยู่ในระบบแล้วหรือยัง
     if (oldUser) {
       return res.json({ error: "มีชื่อผู้ใช้นี้อยู่ในระบบแล้ว" });
@@ -2269,7 +2271,7 @@ app.post("/loginuser", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ username:username });
+    const user = await User.findOne({ username: username });
 
     if (!user) {
       return res.status(404).json({ error: "ยังไม่มีบัญชีผู้ใช้นี้" });
@@ -2280,11 +2282,11 @@ app.post("/loginuser", async (req, res) => {
     }
 
     if (await bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ username: user.username }, JWT_SECRET,{ expiresIn: "30d" });
-      return res.status(201).send({ 
-        status: "ok", 
-        data: token, 
-        addDataFirst: user.AdddataFirst ,
+      const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: "30d" });
+      return res.status(201).send({
+        status: "ok",
+        data: token,
+        addDataFirst: user.AdddataFirst,
       });
     } else {
       return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
@@ -2473,7 +2475,7 @@ app.post('/forgot-passworduser', async (req, res) => {
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
-  const otpExpiration = Date.now() + 300000; 
+  const otpExpiration = Date.now() + 300000;
 
 
   await OTPModelUser.updateOne({ email }, { otp, otpExpiration }, { upsert: true });
@@ -2483,7 +2485,7 @@ app.post('/forgot-passworduser', async (req, res) => {
     service: 'Gmail',
     auth: {
       user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
@@ -2507,15 +2509,15 @@ app.post('/verify-otp', async (req, res) => {
 
   const otpRecord = await OTPModelUser.findOne({ email }).sort({ createdAt: -1 });
   if (!otpRecord) {
-      return res.status(400).send('รหัส OTP หมดอายุหรือไม่ถูกต้อง');
-    }
-    const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
+    return res.status(400).send('รหัส OTP หมดอายุหรือไม่ถูกต้อง');
+  }
+  const isOtpValid = otpRecord.otp === otp && Date.now() - otpRecord.createdAt < 10 * 60 * 1000;
 
   if (!isOtpValid) {
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
+    return res.status(400).json({ error: 'Invalid or expired OTP' });
+  }
 
-    await OTPModelUser.deleteMany({ email});
+  await OTPModelUser.deleteMany({ email });
   res.send('ส่งรหัส OTP แล้ว');
 });
 
@@ -3701,7 +3703,7 @@ app.post("/addassessment", async (req, res) => {
       await Alert.create({
         patientFormId: patientForm._id,
         alertMessage,
-        user: patientForm.user._id 
+        user: patientForm.user._id
       });
       io.emit('newAlert', { alertMessage, patientFormId: patientForm._id });
 
@@ -4621,7 +4623,7 @@ app.get("/getsymptom/:id", async (req, res) => {
 
 app.get("/searchuserchat", async (req, res) => {
   try {
-    const { keyword } = req.query; 
+    const { keyword } = req.query;
 
     const regex = new RegExp(escapeRegex(keyword), "i");
 
@@ -4996,7 +4998,7 @@ app.post("/sendchat", uploadimg.single("image"), async (req, res) => {
           success: true,
           message: "Chat message with image saved",
           newChat,
-          imageUrl,
+          imageUrl, 
           imageName: originalFileName,
           fileSize,
           roomId,
@@ -5562,7 +5564,7 @@ app.get("/getpatientformsone/:id", async (req, res) => {
 });
 
 
-//เอาบันทึกคนนี้้มาทั้งหมด
+//เอาบันทึกของ user id มาทั้งหมด หน้าตารางบันทึกการประเมิน
 app.get("/getReadinessForms/:userId", async (req, res) => {
   const userId = req.params.userId;
 
@@ -5576,12 +5578,13 @@ app.get("/getReadinessForms/:userId", async (req, res) => {
 });
 
 // ดึงข้อมูล ReadinessForm โดยใช้ ID
+//คลิกที่การประเมินเพื่อดูรายละเอียด id ประเมินนี้
 app.get('/getReadinessForm/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
     const readinessForm = await ReadinessForm.findById(id);
-    
+
     if (!readinessForm) {
       return res.status(404).json({ success: false, message: 'ReadinessForm not found' });
     }
@@ -5614,6 +5617,8 @@ app.post('/addReadinessAssessment', async (req, res) => {
     }
   }
 });
+
+//หน้าตารางการบันทึก
 app.get("/allReadinessAssessment", async (req, res) => {
   try {
     const allReadinessAssessment = await ReadinessAssessment.find({});
@@ -5623,6 +5628,7 @@ app.get("/allReadinessAssessment", async (req, res) => {
   }
 });
 
+//หน้ารายละเอียดประเมินความพร้อมการดูแล
 app.get("/allReadinessAssessments", async (req, res) => {
   try {
     const readinessAssessments = await ReadinessAssessment.find().populate('MPersonnel');
@@ -5646,6 +5652,384 @@ app.get('/completedAssessmentsCount', async (req, res) => {
 //   server.listen(PORT, () => {
 //     console.log('Server is running on port 5000');
 //   });
-  server.listen(5000, () => {
-    console.log('Server is running on port 5000');
-  });
+server.listen(5000, () => {
+  console.log('Server is running on port 5000');
+});
+
+
+app.post('/submitassessinhome/:id', async (req, res) => {
+  const {
+    userId,
+    MPersonnel,
+    Caregiver,
+    status_inhome,
+    Immobility,
+    Nutrition,
+    Housing,
+    OtherPeople,
+    Medication,
+    PhysicalExamination,
+    SSS,
+  } = req.body;
+
+  try {
+    // ตรวจสอบว่า Caregiver Array มีข้อมูลหรือไม่
+    if (!Caregiver || Caregiver.length === 0) {
+      return res.status(400).json({ success: false, message: 'Caregiver array is required' });
+    }
+
+    // Map Caregiver IDs ไปยัง existingCaregivers
+    const updatedExistingCaregivers = Caregiver.map((caregiver, index) => {
+      const caregiverId = typeof caregiver === 'object' ? caregiver.CaregiverId || caregiver : caregiver;
+
+      return {
+        CaregiverId: caregiverId,
+        firstName: caregiver.name || OtherPeople?.existingCaregivers?.[index]?.firstName || "",
+        lastName: caregiver.surname || OtherPeople?.existingCaregivers?.[index]?.lastName || "",
+        birthDate: OtherPeople?.existingCaregivers?.[index]?.birthDate || "",
+        role: OtherPeople?.existingCaregivers?.[index]?.role || "",
+        occupation: OtherPeople?.existingCaregivers?.[index]?.occupation || "",
+        status: OtherPeople?.existingCaregivers?.[index]?.status || "",
+        education: OtherPeople?.existingCaregivers?.[index]?.education || "",
+        income: OtherPeople?.existingCaregivers?.[index]?.income || "",
+        benefit: OtherPeople?.existingCaregivers?.[index]?.benefit || "",
+        ud: OtherPeople?.existingCaregivers?.[index]?.ud || "",
+        habit: OtherPeople?.existingCaregivers?.[index]?.habit || "",
+        careDetails: OtherPeople?.existingCaregivers?.[index]?.careDetails || "",
+        isNew: false,
+      };
+    });
+
+    // เพิ่ม Caregiver ใหม่
+    const newCaregivers = OtherPeople?.newCaregivers?.map((caregiver) => ({
+      firstName: caregiver.firstName,
+      lastName: caregiver.lastName,
+      birthDate: caregiver.birthDate,
+      role: caregiver.role,
+      occupation: caregiver.occupation,
+      status: caregiver.status,
+      education: caregiver.education,
+      income: caregiver.income,
+      benefit: caregiver.benefit,
+      ud: caregiver.ud,
+      habit: caregiver.habit,
+      careDetails: caregiver.careDetails,
+      isNew: true,
+    })) || [];
+
+    // ปรับปรุงโครงสร้าง PhysicalExamination ให้รองรับ isOther
+    const updatedPhysicalExamination = {};
+    Object.keys(PhysicalExamination).forEach((key) => {
+      if (Array.isArray(PhysicalExamination[key])) {
+        // แปลงข้อมูลเป็นรูปแบบที่รองรับ isOther
+        updatedPhysicalExamination[key] = PhysicalExamination[key].map((item) => {
+          if (typeof item === 'string') {
+            if (item.startsWith("อื่นๆ:")) {
+              return {
+                value: item.replace("อื่นๆ: ", "").trim(),
+                isOther: true,
+              };
+            } else {
+              return {
+                value: item,
+                isOther: false,
+              };
+            }
+          } else if (typeof item === 'object' && item.value) {
+            // หากเป็น object อยู่แล้ว
+            return item;
+          }
+          return null;
+        }).filter((item) => item); // ลบค่าที่ไม่ใช้งานออก
+      } else {
+        updatedPhysicalExamination[key] = PhysicalExamination[key];
+      }
+    });
+
+    const newAssessinhomesss = new Assessinhomesss({
+      user: userId,
+      MPersonnel,
+      Caregiver,
+      Immobility,
+      Nutrition,
+      Housing,
+      OtherPeople: {
+        existingCaregivers: updatedExistingCaregivers,
+        newCaregivers: newCaregivers,
+      },
+      Medication,
+      PhysicalExamination: updatedPhysicalExamination,
+      SSS,
+      status_inhome,
+    });
+
+    await newAssessinhomesss.save();
+    res.status(201).json({ success: true, message: 'Assessinhomesss saved successfully' });
+  } catch (error) {
+    console.error('Error saving Assessinhomesss:', error);
+    res.status(500).json({ success: false, message: 'Error saving Assessinhomesss', error: error.message });
+  }
+});
+
+
+//เอาบันทึกของ user id มาทั้งหมด หน้าตารางบันทึกการประเมิน
+app.get("/getAssessinhomeForms/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const assessinhomeForms = await Assessinhomesss.find({ user: userId }).populate('MPersonnel');;
+    res.send({ status: "ok", data: assessinhomeForms });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+
+
+// ดึงข้อมูล ReadinessForm โดยใช้ ID
+//คลิกที่การประเมินเพื่อดูรายละเอียด id ประเมินนี้
+app.get('/getAssessinhomeForm/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const AssessinhomesssForm = await Assessinhomesss.findById(id);
+
+    if (!AssessinhomesssForm) {
+      return res.status(404).json({ success: false, message: 'AssessinhomesssForm not found' });
+    }
+
+    res.status(200).json({ success: true, data: AssessinhomesssForm });
+  } catch (error) {
+    console.error('Error fetching AssessinhomesssForm:', error);
+    res.status(500).json({ success: false, message: 'Error fetching AssessinhomesssForm' });
+  }
+});
+
+//แก้ไข inhomesss
+app.post('/updateAssessinhomesss/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      // ค้นหาและอัปเดตข้อมูลในฐานข้อมูล
+      const updatedAssessinhomesss = await Assessinhomesss.findByIdAndUpdate(
+          id,
+          { $set: updateData },
+          { new: true } // คืนค่าเอกสารที่อัปเดตแล้ว
+      );
+
+      if (!updatedAssessinhomesss) {
+          return res.status(404).json({ message: 'Assessinhomesss not found' });
+      }
+
+      res.status(200).json({ message: 'Assessinhomesss updated successfully', data: updatedAssessinhomesss });
+  } catch (error) {
+      console.error('Error updating Assessinhomesss:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+app.post('/submitagenda/:id', async (req, res) => {
+  const { userId, MPersonnel, Caregiver, newCaregivers, status_agenda, PatientAgenda, CaregiverAgenda, CaregiverAssessment, Zaritburdeninterview } = req.body;
+
+  console.log("Received newCaregivers:", newCaregivers); // ตรวจสอบว่าได้รับ newCaregivers หรือไม่
+
+  try {
+    // สร้างเอกสาร Agenda ใหม่
+    const newAgenda = new Agenda({
+      user: userId,
+      MPersonnel,
+      Caregiver,
+      newCaregivers, // บันทึก newCaregivers ที่ได้รับ
+      PatientAgenda,
+      CaregiverAgenda,
+      CaregiverAssessment,
+      Zaritburdeninterview,
+      status_agenda,
+    });
+
+    await newAgenda.save();
+    res.status(201).json({ success: true, message: 'Agenda saved successfully', agenda: newAgenda });
+  } catch (error) {
+    console.error('Error saving Agenda:', error);
+    res.status(500).json({ success: false, message: 'Error saving Agenda' });
+  }
+});
+
+app.get('/getAgendaForm/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const agendaForm = await Agenda.findById(id);
+
+    if (!agendaForm) {
+      return res.status(404).json({ success: false, message: 'agendaForm not found' });
+    }
+
+    res.status(200).json({ success: true, data: agendaForm });
+  } catch (error) {
+    console.error('Error fetching agendaForm:', error);
+    res.status(500).json({ success: false, message: 'Error fetching agendaForm' });
+  }
+});
+
+app.get("/getAgendaForms/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const agendaForms = await Agenda.find({ user: userId }).populate('MPersonnel');;
+    res.send({ status: "ok", data: agendaForms });
+  } catch (error) {
+    console.error(error);
+    res.send({ status: "error" });
+  }
+});
+//แก้ไข inhomesss
+app.post('/updateAgenda/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      // ค้นหาและอัปเดตข้อมูลในฐานข้อมูล
+      const updatedAgenda = await Agenda.findByIdAndUpdate(
+          id,
+          { $set: updateData },
+          { new: true } // คืนค่าเอกสารที่อัปเดตแล้ว
+      );
+
+      if (!updatedAgenda) {
+          return res.status(404).json({ message: 'Agenda not found' });
+      }
+
+      res.status(200).json({ message: 'Agenda updated successfully', data: updatedAgenda });
+  } catch (error) {
+      console.error('Error updating Agenda:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+//ดึงชื่อนามสกุลผู้ดูแลในประเมินเยี่ยมบ้าน
+app.get('/getcaregivers/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const caregivers = await Caregiver.find({ user: userId }, 'name surname');
+
+    // ใช้ Map กรองข้อมูลซ้ำ
+    const uniqueCaregivers = Array.from(new Map(
+      caregivers.map(item => [`${item.name} ${item.surname}`, item])
+    ).values());
+
+    res.status(200).json({
+      status: 'ok',
+      data: uniqueCaregivers,
+    });
+  } catch (error) {
+    console.error("Error fetching caregivers:", error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch caregivers.',
+    });
+  }
+});
+
+//ดึงชื่อผู้ดูแลมาแสดงหน้า Agenda
+app.get('/getCaregiverstoAgenda/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // ดึงข้อมูล Caregiver ของ User นี้
+    const caregivers = await Caregiver.find({ user: userId }, 'id name surname');
+
+    // กรอง Caregiver ที่ชื่อ-นามสกุลซ้ำ
+    const uniqueCaregivers = Array.from(new Map(
+      caregivers.map(item => [`${item.name} ${item.surname}`, item])
+    ).values());
+
+    res.status(200).json({
+      status: 'ok',
+      data: uniqueCaregivers,
+    });
+  } catch (error) {
+    console.error("Error fetching caregivers:", error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch caregivers.',
+    });
+  }
+});
+
+
+//ดึง caregiver ทั้งหมดที่มี เพื่อบันทึกลงอีกตาราง
+app.get('/getCaregiversByUser/:userId', async (req, res) => {
+  const userId = req.params.userId; // รับ userId จาก URL parameter
+
+  try {
+    // ค้นหา Caregiver ที่เกี่ยวข้องกับ userId
+    const caregivers = await Caregiver.find({ user: userId }, '_id');
+
+    // ตรวจสอบว่าพบข้อมูลหรือไม่
+    if (!caregivers || caregivers.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No caregivers found for this user.' });
+    }
+
+    // ส่งคืน ID ของ Caregiver ทั้งหมด
+    res.status(200).json({
+      status: 'ok',
+      data: caregivers.map((caregiver) => caregiver._id),
+    });
+  } catch (error) {
+    console.error('Error fetching caregivers:', error);
+    res.status(500).json({ status: 'error', message: 'Internal Server Error', error: error.message });
+  }
+});
+
+//Agenda
+app.get('/getcaregivesotherpeople/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // ค้นหาเอกสารทั้งหมดที่เกี่ยวข้องกับ userId
+    const users = await Assessinhomesss.find({ user: userId }).lean();
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // รวมข้อมูล newCaregivers จากทุกเอกสาร
+    const newCaregivers = users.flatMap((user) =>
+      user?.OtherPeople?.newCaregivers?.map((caregiver) => ({
+        id: caregiver?._id,
+        firstName: `${caregiver?.firstName || 'Unknown'} `,
+        lastName: `${caregiver?.lastName || 'Unknown'}`,
+      })) || []
+    );
+
+    res.status(200).json({
+      status: 'ok',
+      data: newCaregivers,
+    });
+  } catch (error) {
+    console.error('Error fetching new caregivers:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch new caregivers',
+      error: error.message,
+    });
+  }
+});
+
+
+//home
+
+app.get("/immobility/group3", async (req, res) => {
+  try {
+    const data = await Assessinhomesss.find({
+      "Immobility.totalScore": { $gte: 36, $lte: 48 }, // เงื่อนไขสำหรับกลุ่มที่ 3
+    }).populate("user"); // ดึงข้อมูล user เพิ่มเติม (ถ้าต้องการ)
+
+    res.status(200).json({ data });
+  } catch (error) {
+    console.error("Error fetching group 3 data:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
