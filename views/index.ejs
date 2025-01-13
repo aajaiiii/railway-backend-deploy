@@ -20,6 +20,11 @@
             color: white;
         }
 
+        .btnsubmit:hover {
+            background-color: #87CEFA;
+            color: white;
+        }
+
         .header {
             text-align: center;
             font-size: 25px;
@@ -67,15 +72,15 @@
     flex-wrap: wrap; */
         }
     </style>
-    <script>
+    <!-- <script>
         var status = '<%- JSON.stringify(status) %>';
         if (JSON.parse(status) == "verified") {
             //  alert('เปลี่ยนรหัสผ่านสำเร็จ');
             window.location.href = "http://localhost:3000/success"; 
         }
-    </script>
+    </script> -->
 
-     <!-- <script>
+    <!-- <script>
         // เมื่อรีเซ็ทรหัสผ่านสำเร็จ แสดง alert
         window.onload = function() {
             var urlParams = new URLSearchParams(window.location.search);
@@ -89,7 +94,7 @@
 
 <body>
     <div class="homereset_content">
-      
+
         <h1 class="header">
             รีเซ็ทรหัสผ่าน
         </h1>

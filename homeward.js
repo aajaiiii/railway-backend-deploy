@@ -120,8 +120,7 @@ const UserScehma = new mongoose.Schema(
     nationality: String,
     Address: String,
     deletedAt: { type: Date, default: null },
-    // otp: String,
-    // otpExpiration: { type: Date, default: Date.now, expires: '10m' },
+    deleteExpiry:  { type: Date, default: null },
     AdddataFirst: { type: Boolean, default: false },
     physicalTherapy: { type: Boolean, default: false },
     isEmailVerified: { type: Boolean, default: false }
@@ -229,6 +228,16 @@ const AssessmentScehma = new mongoose.Schema(
       ref: "PatientForm",
       unique: true,
     },
+    history: [
+      {
+        suggestion: String,
+        detail: String,
+        status_name: String,
+        PPS: Number,
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],  
   },
   {
     collection: "Assessment",
@@ -238,6 +247,58 @@ const AssessmentScehma = new mongoose.Schema(
 
 mongoose.model("Assessment", AssessmentScehma);
 
+
+// const chatSchema = new mongoose.Schema(
+//   {
+//     message: String,
+//     sender: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       refPath: 'senderModel',
+//     },
+//     image: String,
+//     imageName: {
+//       type: String,
+//       default: null,
+//     },
+//     recipientIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MPersonnel' }], 
+//     recipient: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       refPath: 'recipientModel',
+//     },
+//     senderModel: {
+//       type: String,
+//       required: true,
+//       enum: ['User', 'MPersonnel'],
+//     },
+//     recipientModel: {
+//       type: String,
+//       // required: true,
+//       enum: ['User', 'MPersonnel'],
+//     },
+//     isRead: {
+//       type: Boolean,
+//       default: false
+//     },
+//     readAt: Date,
+//     readBy: [
+//       {
+//         type: mongoose.Schema.Types.ObjectId,
+//         refPath: 'recipientModel',
+//       },
+//     ],
+//     fileSize: {
+//       type: Number, 
+//       default: null,
+//     },
+//   },
+
+//   {
+//     collection: "Chat",
+//     timestamps: true,
+//   }
+// );
+
+// mongoose.model("Chat", chatSchema);
 
 const chatSchema = new mongoose.Schema(
   {
@@ -251,41 +312,55 @@ const chatSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-
-    recipient: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'recipientModel',
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId, // เก็บ userId ตามที่อธิบายไว้
+      required: true,
     },
     senderModel: {
       type: String,
       required: true,
       enum: ['User', 'MPersonnel'],
     },
-    recipientModel: {
-      type: String,
-      required: true,
-      enum: ['User', 'MPersonnel'],
-    },
     isRead: {
       type: Boolean,
-      default: false
+      default: false,
     },
     readAt: Date,
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: 'senderModel',
+      },
+    ],
     fileSize: {
       type: Number,
       default: null,
     },
   },
-
   {
-    collection: "Chat",
+    collection: 'Chat',
     timestamps: true,
   }
 );
+chatSchema.index({ roomId: 1, readBy: 1 }); 
+mongoose.model('Chat', chatSchema);
 
-mongoose.model("Chat", chatSchema);
-
-
+const RoomSchema = new mongoose.Schema({
+  roomId: mongoose.Schema.Types.ObjectId,
+  participants: [
+    {
+      id: mongoose.Schema.Types.ObjectId,
+      model: { type: String, enum: ["User", "MPersonnel"] },
+      unreadCount: { type: Number, default: 0 }, // จำนวนแชทที่ยังไม่ได้อ่านสำหรับผู้ใช้
+    },  
+  ],
+},
+  {
+    collection: 'Room',
+    timestamps: true,
+  }
+);
+mongoose.model('Room', RoomSchema);
 
 const AlertSchema = new mongoose.Schema(
   {
@@ -330,6 +405,7 @@ const UserThresholdSchema = new mongoose.Schema({
   Temperature: { min: Number, max: Number },
   DTX: { min: Number, max: Number },
   Respiration: { min: Number, max: Number },
+  Painscore: { type: Number}
 }, {
   collection: 'UserThresholds',
   timestamps: true,
@@ -651,3 +727,19 @@ AssessinhomesssSchema.post('save', async function (doc, next) {
     next(error);
   }
 });
+
+const DefaultThresholdSchema = new mongoose.Schema({
+  SBP: { min: Number, max: Number },
+  DBP: { min: Number, max: Number },
+  PulseRate: { min: Number, max: Number },
+  Temperature: { min: Number, max: Number },
+  DTX: { min: Number, max: Number },
+  Respiration: { min: Number, max: Number },
+  Painscore: { type: Number},
+},  {
+  collection: 'DefaultThreshold',
+  timestamps: true,
+});
+
+mongoose.model('DefaultThreshold', DefaultThresholdSchema);
+
