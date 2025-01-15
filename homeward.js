@@ -179,6 +179,19 @@ const MedicalInformationSchema = new mongoose.Schema(
     fileM: String,
     fileP: String,
     filePhy: String,
+    fileMName: {
+      type: String,
+      required: false, // ถ้าไม่บังคับอัปโหลดไฟล์
+    },
+    filePName: {
+      type: String,
+      required: false,
+    },
+    filePhyName: {
+      type: String,
+      required: false,
+    },
+    
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // แก้เป็น ref: "User"
     // equipment: { type: mongoose.Schema.Types.ObjectId, ref: "Equipment" },
     // personnel: { type: mongoose.Schema.Types.ObjectId, ref: "MPersonnel" },
@@ -377,7 +390,10 @@ const AlertSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
-    
+    createdAtAss: {
+      type: Date,
+      // ลบ default: Date.now ออกไป เพราะจะใช้ค่า createdAt ที่ส่งจาก Assessment
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
