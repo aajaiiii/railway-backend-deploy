@@ -420,7 +420,7 @@ app.post("/forgot-password", async (req, res) => {
       expiresIn: "5m",
     });
 
-    const link = `http://localhost:5000/reset-password/${oldUser._id}/${token}`;
+    const link = `https://railway-backend-deploy-production-1d41.up.railway.app/reset-password/${oldUser._id}/${token}`;
     var transporter = nodemailer.createTransport({
       service: "gmail",
       // มาเปลี่ยนอีเมลที่ส่งด้วย
@@ -1598,7 +1598,7 @@ app.post("/forgot-passworddt", async (req, res) => {
       expiresIn: "5m",
     });
 
-    const link = `http://localhost:5000/reset-passworddt/${oldUser._id}/${token}`;
+    const link = `https://railway-backend-deploy-production-1d41.up.railway.app/reset-passworddt/${oldUser._id}/${token}`;
     var transporter = nodemailer.createTransport({
       service: "gmail",
       // มาเปลี่ยนอีเมลที่ส่งด้วย
