@@ -596,16 +596,16 @@ app.post("/logout", (req, res) => {
 });
 
 //แพทย์
-app.get("/check-equip-name", async (req, res) => {
-  const { equipment_name } = req.query;
-  try {
-    const existingEquip = await Equipment.findOne({ equipment_name });
-    res.json({ exists: !!existingEquip });
-  } catch (error) {
-    console.error("Error checking equip name:", error);
-    res.status(500).json({ message: "Error checking equip name" });
-  }
-});
+// app.get("/check-equip-name", async (req, res) => {
+//   const { equipment_name } = req.query;
+//   try {
+//     const existingEquip = await Equipment.findOne({ equipment_name });
+//     res.json({ exists: !!existingEquip });
+//   } catch (error) {
+//     console.error("Error checking equip name:", error);
+//     res.status(500).json({ message: "Error checking equip name" });
+//   }
+// });
 app.post('/updateequip/:id', async (req, res) => {
   const { id } = req.params;
   const { equipment_name, equipment_type } = req.body;
@@ -615,7 +615,12 @@ app.post('/updateequip/:id', async (req, res) => {
     if (!equipment) {
       return res.status(404).json({ error: 'Equipment not found' });
     }
-
+    if (equipment.equipment_name !== equipment_name) {
+      const existingEquip = await Equipment.findOne({ equipment_name });
+      if (existingEquip) {
+        return res.status(400).json({ error: 'ชื่ออุปกรณ์ซ้ำในระบบ กรุณาเปลี่ยนชื่อ' });
+      }
+    }
     equipment.equipment_name = equipment_name;
     equipment.equipment_type = equipment_type;
     await equipment.save();
@@ -1402,23 +1407,26 @@ const uploadFileToBucket = (file) => {
   });
 };
 
-app.get("/check-caremanual-name", async (req, res) => {
-  const { caremanual_name } = req.query;
-  try {
-    const existingCaremanual = await Caremanual.findOne({ caremanual_name });
-    res.json({ exists: !!existingCaremanual }); // true ถ้าซ้ำ, false ถ้าไม่ซ้ำ
-  } catch (error) {
-    console.error("Error checking caremanual name:", error);
-    res.status(500).json({ message: "Error checking caremanual name" });
-  }
-});
+// app.get("/check-caremanual-name", async (req, res) => {
+//   const { caremanual_name } = req.query;
+//   try {
+//     const existingCaremanual = await Caremanual.findOne({ caremanual_name });
+//     res.json({ exists: !!existingCaremanual }); // true ถ้าซ้ำ, false ถ้าไม่ซ้ำ
+//   } catch (error) {
+//     console.error("Error checking caremanual name:", error);
+//     res.status(500).json({ message: "Error checking caremanual name" });
+//   }
+// });
 
 app.post("/updatecaremanual/:id", uploadimg.fields([{ name: 'image' }, { name: 'file' }]), async (req, res) => {
   const { caremanual_name, detail } = req.body;
   const { id } = req.params;
 
   try {
-    
+    const existingCaremanual = await Caremanual.findOne({ caremanual_name });
+    if (existingCaremanual && existingCaremanual._id.toString() !== id) {
+      return res.status(400).json({ error: 'ชื่อคู่มือซ้ำในระบบ กรุณาเปลี่ยนชื่อ' });
+    }
     const files = req.files;
 
     const { imageUrl, fileUrl } = await uploadFiles(files);
@@ -4423,22 +4431,27 @@ app.delete("/deletesymptom/:id", async (req, res) => {
 });
 
 //แก้ไขอาการ
-app.get("/check-symptom-name", async (req, res) => {
-  const { name } = req.query;
-  try {
-    const existingSymptom = await Symptom.findOne({ name });
-    res.json({ exists: !!existingSymptom });
-  } catch (error) {
-    console.error("Error checking symptom name:", error);
-    res.status(500).json({ message: "Error checking symptom name" });
-  }
-});
+// app.get("/check-symptom-name", async (req, res) => {
+//   const { name } = req.query;
+//   try {
+//     const existingSymptom = await Symptom.findOne({ name });
+//     res.json({ exists: !!existingSymptom });
+//   } catch (error) {
+//     console.error("Error checking symptom name:", error);
+//     res.status(500).json({ message: "Error checking symptom name" });
+//   }
+// });
 
 app.post("/updatesymptom/:id", async (req, res) => {
   const { name } = req.body;
   const { id } = req.params;
 
   try {
+    const existingSymptom = await Symptom.findOne({ name });
+    if (existingSymptom && existingSymptom._id.toString() !== id) {
+      return res.status(400).json({ error: 'ชื่ออาการซ้ำในระบบ กรุณาเปลี่ยนชื่อ' });
+    }
+
     const UpdatedSymptom = await Symptom.findByIdAndUpdate(
       id,
       {
